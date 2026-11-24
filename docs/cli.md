@@ -47,7 +47,7 @@ The conversion stops with an error if any value is not on the ADC grid (more
 than 0.02 LSB off), if the header's sample count is wrong, or if captures have
 different lengths or sampling intervals.
 
-Example output:
+Example output (convert):
 
 ```text
 captures         : 100
@@ -57,3 +57,36 @@ live time        : 29.1 s  (13.0% duty)
 ...
 wrote data\source_first100.h5: 100 captures, 70.7 MB (0.71 MB/capture), lsb=8.4771697000e-05 V, live time 29.1 s
 ```
+
+## `characterize`
+
+Build the pulse template and characterise the noise, stability and raw spectrum of a
+store. Results are described in [characterization.md](characterization.md).
+
+```bash
+gammaspec characterize STORE.h5 OUT_DIR [--limit N] [--template-post S] [--isolation-pre S]
+                       [--isolation-post S] [--trigger-threshold K] [--min-amplitude-sigma K]
+                       [--max-amplitude-v V] [--resolution R] [--compare TEMPLATE.h5]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `STORE.h5` | (required) | capture store from `convert` |
+| `OUT_DIR` | (required) | output folder (created) |
+| `--limit N` | all | only the first *N* captures |
+| `--template-post S` | 1500 | samples of template kept after the peak |
+| `--isolation-pre S`, `--isolation-post S` | 1500 | template pulses need no other pulse this close before / after. **Use about 300 for high-rate data** |
+| `--trigger-threshold K` | 5 | coarse trigger threshold, in noise σ of the edge signal |
+| `--min-amplitude-sigma K` | 30 | template pulses must exceed K × noise σ |
+| `--max-amplitude-v V` | 4 | template pulses must stay below this (avoids saturation) |
+| `--resolution R` | 16 | template grid points per sample |
+| `--compare TEMPLATE.h5` | none | overlay another template (e.g. from another run) |
+
+Outputs in `OUT_DIR`:
+
+| File | Contents |
+|---|---|
+| `template.h5` | the template (`shape`, `resolution`, `t_start`) with model parameters and provenance as attributes; load with `PulseTemplate.load` |
+| `noise.h5` | `freq_hz`, `psd` (V²/Hz, one-sided), `autocorr`; σ and white level as attributes |
+| `summary.json` | every number in the report, plus the configuration used |
+| `template.png`, `shape_vs_amplitude.png`, `noise.png`, `stability.png`, `spectrum_raw.png` | diagnostic plots |

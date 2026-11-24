@@ -61,6 +61,25 @@ def _cmd_convert(args) -> int:
     return 0
 
 
+def _cmd_characterize(args) -> int:
+    from .characterize import CharacterizeConfig, characterize
+
+    cfg = CharacterizeConfig(limit=args.limit)
+    for name in ("template_post", "isolation_pre", "isolation_post", "trigger_threshold",
+                 "min_amplitude_sigma", "max_amplitude_v", "resolution"):
+        v = getattr(args, name)
+        if v is not None:
+            setattr(cfg, name, v)
+    s = characterize(args.store, args.out, cfg, compare=args.compare)
+    m, n, tp = s["model"], s["noise"], s["template"]
+    print(f"count rate {s['count_rate_cps']:.0f} cps | noise sigma {n['sigma_v_diff'] * 1e3:.2f} mV | "
+          f"template from {tp['n_pulses_used']} pulses | undershoot {tp['undershoot_min']:.4f} "
+          f"at {tp['undershoot_min_t']:.0f} samples")
+    print("model taus (samples): " + ", ".join(f"{t:.3g}" for t in m["taus_samples"])
+          + f" | rms {m['rms']:.2e}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="gammaspec", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -82,6 +101,20 @@ def main(argv: list[str] | None = None) -> int:
     pc.add_argument("--estimate-lsb", action="store_true", help="estimate the ADC step from the data")
     pc.add_argument("--overwrite", action="store_true")
     pc.set_defaults(func=_cmd_convert)
+
+    ph = sub.add_parser("characterize", help="build the pulse template and characterise noise")
+    ph.add_argument("store", help="HDF5 capture store")
+    ph.add_argument("out", help="output directory")
+    ph.add_argument("--limit", type=int, help="only the first N captures")
+    ph.add_argument("--template-post", type=int, help="samples kept after the peak (default 1500)")
+    ph.add_argument("--isolation-pre", type=int, help="pulse-free samples required before (default 1500)")
+    ph.add_argument("--isolation-post", type=int, help="pulse-free samples required after (default 1500)")
+    ph.add_argument("--trigger-threshold", type=float, help="coarse trigger threshold in sigma (default 5)")
+    ph.add_argument("--min-amplitude-sigma", type=float, help="min template pulse height in sigma (default 30)")
+    ph.add_argument("--max-amplitude-v", type=float, help="max template pulse height in volts (default 4)")
+    ph.add_argument("--resolution", type=int, help="template points per sample (default 16)")
+    ph.add_argument("--compare", help="reference template.h5 to overlay")
+    ph.set_defaults(func=_cmd_characterize)
 
     args = p.parse_args(argv)
     if getattr(args, "lsb", None) is None and hasattr(args, "lsb"):
