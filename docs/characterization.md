@@ -39,7 +39,7 @@ starting from zero:
 | Component | Background fit | Source fit | Interpretation |
 |---|---|---|---|
 | τ₁ (rise) | 0.245 µs | 0.246 µs | NaI(Tl) light decay (230–250 ns) |
-| τ₂ (main decay) | 4.17 µs | 4.10 µs | RC time constant of the PMT output circuit |
+| τ₂ (main decay) | 4.17 µs | 4.10 µs | decay time constant of the preamplifier |
 | τ₃ (undershoot) | 42 µs | 69 µs | AC coupling |
 | τ₄ (undershoot) | 176 µs | — | second coupling stage; the 300-sample source window is too short to separate it |
 | Gaussian smoothing σ | 0.036 µs | 0.037 µs | front-end bandwidth |
@@ -73,7 +73,7 @@ everywhere. Pulses above about 1 V (cosmic muons) are too few to test.
 * **Interference dominates the noise.** Narrow lines at **256.6 kHz (and harmonics
   at 513 and 773 kHz)**, **379.7 kHz**, 541, 622 kHz and others sit up to 300× above
   the white floor. The noise autocorrelation oscillates with a period of 7 samples.
-  This looks like pickup from switching power supplies, for example the PMT
+  This looks like pickup from switching power supplies, for example the PMT high-voltage or preamplifier
   high-voltage supply or DC-DC converters.
 * **The interference switches on and off.** In the background run, 79 % of captures are
   "noisy" (σ ≈ 6.3 mV) and the rest "quiet" (σ ≈ 1.6 mV); the switching is

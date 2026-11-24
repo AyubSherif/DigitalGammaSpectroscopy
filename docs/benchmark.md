@@ -1,7 +1,7 @@
 # Benchmark: naive peak count vs analog chain vs gammaspec
 
 This benchmark asks how much the processing in `gammaspec` improves the spectrum. It
-compares three ways of turning the same recorded PMT waveforms into a spectrum:
+compares three ways of turning the same recorded preamplifier waveforms into a spectrum:
 
 1. **Naive:** `scipy.signal.find_peaks` on the raw waveform, with no transformation.
 2. **Analog:** an emulated conventional NaI(Tl) chain (preamplifier + shaping amplifier + MCA).
@@ -35,8 +35,9 @@ processing.
 | **analog CR-RC⁴, 0.5 µs, with PUR** | The same with 0.5 µs shaping: shorter pulses, so less pile-up. |
 | **gammaspec** | The pipeline's event file: interference removal, pole-zero correction and baseline tracking, optimal-filter detection, and the pile-up solver. Good events only (isolated + resolved pile-up). |
 
-The "preamplifier" is the PMT anode load already present in the recording. The pulse leaves
-the anode with a 4.1 µs decay, like a voltage-mode preamp output, and the shaper's pole-zero
+The recording is the preamplifier output (PMT → preamplifier → ADC), so the emulation uses
+the real preamplifier and replaces only what follows it: the shaping amplifier and the MCA.
+The preamplifier output decays with 4.1 µs, and the shaper's pole-zero
 stage is set to that decay. 0.5–1 µs is the usual shaping range for NaI(Tl), whose light
 decays in 0.25 µs.
 

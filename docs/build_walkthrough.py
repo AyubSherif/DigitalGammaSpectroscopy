@@ -35,6 +35,7 @@ The order follows the data:
 
 | Part | Step | What happens |
 |---|---|---|
+| 0 | The app in pictures | one capture through every step, before and after each one: start here |
 | A | 1. Ingestion | ASCII capture files → lossless integer codes → HDF5 store |
 | B | 2. Characterisation | pulse template, analytic pulse model, noise |
 | C | 3. Pre-processing | interference removal → pole-zero correction → baseline tracker |
@@ -44,6 +45,7 @@ The order follows the data:
 | H | Benchmark | the same pulses through a naive `find_peaks` count, an emulated analog chain and gammaspec |
 | I | 9. Configuration | one run file selects input, stages and parameters; the runner executes it |
 | J | 10. Simulation and streaming | a synthetic signal with known truth; continuous input in overlapping frames; live spectrum |
+| K | 11. The app | the browser UI: a front end for the run file |
 | F | Evaluation tools | how the numbers in the docs were measured |
 
 Conventions: time is in **samples** (1 sample = 1/1.8 MHz = 0.556 µs) unless stated;
@@ -68,6 +70,487 @@ TEMPLATE = ROOT / "data/characterization/background/template.h5"
 TMP = Path(tempfile.mkdtemp())
 FS = 1.8e6
 print("gammaspec", gammaspec.__version__)
+""")
+
+# =============================================================================================
+md(r"""
+---
+# Part 0: The app in pictures
+
+Before going function by function (Parts A–J), this part follows **one recorded capture**
+through the whole program and shows, for every step, the signal **before and after**. Each
+figure answers three questions:
+* what goes in;
+* what comes out;
+* why it matters for the spectrum.
+
+## 0.1 What this software replaces
+
+A gamma-ray spectrometer turns each gamma ray absorbed in the crystal into one number, its
+energy, and counts how often each energy occurs. The **classic** NaI(Tl) setup does this
+with **analog electronics**:
+* a **shaping amplifier** filters each preamplifier pulse into a smooth, slower bump;
+* a **multichannel analyser (MCA)** holds the peak of each bump, digitises that one value,
+  and adds one count to the matching channel.
+
+**gammaspec** keeps the detector, the photomultiplier (PMT) and the preamplifier, then
+digitises the preamplifier output directly with a fast ADC. Everything the shaping
+amplifier and MCA did, and more, happens in software on a PC.
+""")
+code(r"""
+from gammaspec import simulate, sources, stream
+import matplotlib.patches as mpatches
+fig, ax = plt.subplots(figsize=(11, 3.3))
+ax.set_xlim(0, 12.6); ax.set_ylim(0, 3.3); ax.axis("off")
+def chain(y, boxes, colors):
+    x = 0.15
+    for i, (label, col) in enumerate(zip(boxes, colors)):
+        w = 2.55 if "gammaspec" in label else 1.55
+        ax.add_patch(mpatches.FancyBboxPatch((x, y), w, 0.8, boxstyle="round,pad=0.03", fc=col, ec="none", alpha=0.9))
+        ax.text(x + w / 2, y + 0.4, label, ha="center", va="center", fontsize=8.5, color="white" if col != "#e8e6df" else "#333")
+        if i < len(boxes) - 1:
+            ax.annotate("", xy=(x + w + 0.25, y + 0.4), xytext=(x + w + 0.02, y + 0.4), arrowprops=dict(arrowstyle="->", color="#555"))
+        x += w + 0.27
+grey, an, dig = "#e8e6df", P.SERIES[1], P.SERIES[0]
+ax.text(0.15, 3.05, "Analog chain (shaping amplifier + MCA)", fontsize=10, fontweight="bold", color=an)
+chain(2.0, ["NaI(Tl)\ncrystal", "PMT", "preamplifier", "shaping\namplifier", "peak-hold ADC\n+ MCA", "spectrum\n(fixed)"],
+      [grey, grey, grey, an, an, an])
+ax.text(0.15, 1.25, "This software (fast ADC + gammaspec on a PC)", fontsize=10, fontweight="bold", color=dig)
+chain(0.2, ["NaI(Tl)\ncrystal", "PMT", "preamplifier", "fast ADC\n(1.8 MS/s)", "PC: gammaspec\n(clean, detect, pile-up,\ncalibrate, subtract)", "spectrum\n+ every pulse"],
+      [grey, grey, grey, dig, dig, dig])
+plt.show()
+""")
+
+md(r"""
+| | Analog shaping amplifier + MCA | Digitiser + gammaspec |
+|---|---|---|
+| Hardware after the preamplifier | shaping amplifier, MCA (separate instruments) | one ADC board and a PC |
+| What is kept | one number per pulse (its channel) | the whole waveform, or every pulse with its time |
+| Changing the processing | new hardware settings, measure again | change a setting, re-process the same data |
+| Overlapping pulses (pile-up) | rejected (lost) or distorted | separated and measured |
+| Lowest energy recorded | limited by the shaped noise (tens of keV) | a few keV |
+
+The rest of this part shows how each of these differences comes about.
+
+## 0.2 What the ADC records
+
+The ADC samples the preamplifier output 1.8 million times per second. One *capture* is
+524,288 samples (0.29 s). Pulses are **negative-going**, about 4 µs long, and each is
+followed by a small, slow **undershoot** (the AC coupling of the electronics). At 4,500
+pulses per second, many pulses arrive before the previous one has fully returned to zero.
+""")
+code(r"""
+with store.CaptureStore(SRC_STORE) as s_:
+    v_raw = s_.volts(0)
+t_us = np.arange(v_raw.size) / FS * 1e6
+fig, ax = P.figure(3, 1, height_per_row=2.2)
+# 1: the whole capture (min/max envelope per 1000 samples)
+blk = v_raw[: v_raw.size // 1000 * 1000].reshape(-1, 1000)
+tb = np.arange(blk.shape[0]) * 1000 / FS * 1e3
+ax[0,0].fill_between(tb, blk.min(1) * 1e3, blk.max(1) * 1e3, color=P.SERIES[0], lw=0)
+ax[0,0].set_title("one capture: 0.29 s, 524,288 samples (the tall spikes are cosmic-ray muons, > 4 V)"); ax[0,0].set_xlabel("ms"); ax[0,0].set_ylabel("mV")
+# 2: the busiest 300 µs (most pulse starts)
+x_pos = signal.to_positive(v_raw) ; x_pos = x_pos - np.median(x_pos)
+pk_ = signal.find_pulses(x_pos, signal.noise_sigma(x_pos), 8.0)
+def busiest(idx, width, n):
+    cnt = np.searchsorted(idx, idx + width) - np.arange(idx.size)
+    ok = (idx > 2000) & (idx + width < n - 2000) & (x_pos[idx] < 1.0)
+    return int(idx[ok][np.argmax(cnt[ok])]) - 30
+a0 = busiest(pk_, 540, v_raw.size); sl = slice(a0, a0 + 540)
+ax[1,0].plot(t_us[sl] - t_us[a0], v_raw[sl] * 1e3, color=P.SERIES[0], lw=0.9)
+ax[1,0].set_title("300 µs of it: pulses of every size, several starting on the tail of the previous one"); ax[1,0].set_xlabel("µs"); ax[1,0].set_ylabel("mV")
+# 3: one isolated pulse
+iso_ = pk_[signal.isolated(pk_, 300, 900, x_pos.size)]
+p0 = int(iso_[np.argmin(np.abs(x_pos[iso_] - 0.3))])
+sl = slice(p0 - 40, p0 + 900)
+ax[2,0].plot((np.arange(sl.start, sl.stop) - p0) / FS * 1e6, v_raw[sl] * 1e3, color=P.SERIES[0], lw=1)
+ax[2,0].annotate("peak (negative)", xy=(0, v_raw[p0] * 1e3), xytext=(40, v_raw[p0] * 1e3 * 0.8), arrowprops=dict(arrowstyle="->"), fontsize=9)
+ax[2,0].annotate("undershoot: the trace overshoots\nthe baseline and recovers slowly", xy=(150, np.median(v_raw) * 1e3 + 8), xytext=(250, np.median(v_raw) * 1e3 - 120), arrowprops=dict(arrowstyle="->"), fontsize=9)
+ax[2,0].set_title("one isolated pulse (≈ 1.1 MeV): fast rise, 4 µs decay, long undershoot"); ax[2,0].set_xlabel("µs after the peak"); ax[2,0].set_ylabel("mV")
+plt.show()
+""")
+
+md(r"""
+## 0.3 Step 1: from 7 MB of text to a compact file
+
+The digitiser writes every capture as a text file, with one number per line. The first
+step converts the numbers to exact integer ADC codes in a compressed binary file (lossless).
+The processing then reduces it once more: from samples to **one row per pulse** (its time,
+amplitude and quality flags). That event list is all later steps need.
+""")
+code(r"""
+n_caps = 100
+with store.CaptureStore(SRC_STORE) as s_:
+    ns_ = s_.n_samples
+sizes = {"ASCII text\n(as recorded)": 14 * ns_ * n_caps, "HDF5 store\n(lossless codes)": SRC_STORE.stat().st_size,
+         "event list\n(one row per pulse)": (ROOT / "data/events/source_first100.h5").stat().st_size}
+fig, ax = P.figure(1, 1, height_per_row=2.6)
+names, vals = list(sizes), np.array(list(sizes.values())) / 1e6
+ax[0,0].barh(names, vals, color=[P.SERIES[7], P.SERIES[0], P.SERIES[2]])
+for i_, v_ in enumerate(vals):
+    ax[0,0].text(v_, i_, f"  {v_:,.0f} MB" if v_ > 10 else f"  {v_:.1f} MB", va="center", fontsize=9)
+ax[0,0].set_xscale("log"); ax[0,0].set_xlabel("MB for 100 captures (29 s of signal)"); ax[0,0].invert_yaxis()
+ax[0,0].set_title(f"data reduction: {vals[0] / vals[2]:.0f}× smaller as an event list"); plt.show()
+""")
+
+md(r"""
+## 0.4 Step 2: removing interference
+
+Besides pulses, the signal carries narrow **interference lines**: sine waves at fixed
+frequencies, from power electronics nearby. Which lines are present changes from capture to
+capture. In a frequency spectrum of the pulse-free signal they stand out as sharp spikes.
+The program finds them, fits sine waves to the stretches between pulses, and subtracts
+them.
+
+**Why it matters:** interference adds to every pulse height, so it widens the peaks and
+can trigger false pulses.
+""")
+code(r"""
+from scipy.signal import welch
+pz_d = baseline.design_from_template(Tp_raw := template.PulseTemplate.load(TEMPLATE))
+def stage(**on):
+    cfg_ = preprocess.PreprocessConfig(**{**dict(line_removal=False, pole_zero=False, baseline_tracker=False), **on})
+    return preprocess.Preprocessor(FS, cfg_, pz_d if cfg_.pole_zero else None).process(v_raw)
+import warnings as _w
+with _w.catch_warnings():
+    _w.simplefilter("ignore")
+    x_0 = stage()                                           # polarity + offset only
+    x_1 = stage(line_removal=True)                          # + interference removal
+    x_2 = stage(line_removal=True, pole_zero=True, baseline_tracker=True)   # + pole-zero + baseline tracker
+free_ = signal.pulse_free_mask(x_0.size, signal.find_pulses(x_0, signal.noise_sigma(x_0), 5.0), 20, 1500)
+fig, ax = P.figure(1, 2, height_per_row=3.0)
+for xx, lab, col in ((x_0, "before", P.SERIES[1]), (x_1, "after interference removal", P.SERIES[0])):
+    seg = np.where(free_, xx, 0.0)
+    f_, p_ = welch(seg, FS, nperseg=8192)
+    ax[0,0].semilogy(f_ / 1e3, p_, color=col, lw=0.9, label=lab)
+ax[0,0].set_xlim(0, 900); ax[0,0].set_xlabel("frequency (kHz)"); ax[0,0].set_ylabel("power (V²/Hz)"); ax[0,0].legend()
+ax[0,0].set_title("spectrum of the signal between pulses")
+q = np.flatnonzero(np.convolve(free_, np.ones(400), "valid") == 400)[0]
+sl = slice(q, q + 400)
+ax[0,1].plot(np.arange(400) / FS * 1e6, x_0[sl] * 1e3, color=P.SERIES[1], lw=0.9, label="before")
+ax[0,1].plot(np.arange(400) / FS * 1e6, x_1[sl] * 1e3, color=P.SERIES[0], lw=0.9, label="after")
+ax[0,1].set_xlabel("µs"); ax[0,1].set_ylabel("mV"); ax[0,1].legend(); ax[0,1].set_title("220 µs with no pulses: the ripple is removed")
+plt.show()
+pre_l = preprocess.Preprocessor(FS, preprocess.PreprocessConfig(pole_zero=False, baseline_tracker=False)); pre_l.process(v_raw)
+print(f"interference lines found and removed in this capture (kHz): {np.round(np.sort(pre_l.info.line_freqs_hz) / 1e3, 1)}")
+print(f"noise between pulses: {1e3*np.std(x_0[free_]):.2f} mV before, {1e3*np.std(x_1[free_]):.2f} mV after")
+""")
+
+md(r"""
+## 0.5 Step 3: restoring the baseline
+
+Each pulse is followed by its slow undershoot, so a pulse that arrives shortly after another
+one sits *below* zero. Measured from zero, it comes out too small. **Pole-zero correction**
+is a digital filter that cancels the undershoot of every pulse exactly (it is designed from
+the measured pulse shape). The **baseline tracker** then removes what is left of slow
+drifts. After both, every pulse starts from zero, whatever came before it.
+""")
+code(r"""
+Tp_pz = baseline.filter_template(Tp_raw, pz_d.b, pz_d.a)
+fig, ax = P.figure(2, 2, height_per_row=2.8)
+tt = np.linspace(-20, 1200, 3000)
+ax[0,0].plot(tt / FS * 1e6, Tp_raw(tt), color=P.SERIES[1], label="as recorded")
+ax[0,0].plot(tt / FS * 1e6, Tp_pz(tt) / Tp_pz.shape.max(), color=P.SERIES[0], label="after pole-zero")
+ax[0,0].axhline(0, color="#999", lw=0.6); ax[0,0].set_ylim(-0.08, 0.3); ax[0,0].set_xlabel("µs"); ax[0,0].legend()
+ax[0,0].set_title("one pulse, zoomed in on the baseline: undershoot gone")
+# a busy stretch
+dens = np.convolve(np.isin(np.arange(x_0.size), pk_), np.ones(1800), "same")
+c_ = int(np.argmax(dens[5000:-5000])) + 5000
+sl = slice(c_ - 900, c_ + 900)
+tus = np.arange(sl.stop - sl.start) / FS * 1e6
+ax[0,1].plot(tus, x_1[sl] * 1e3, color=P.SERIES[1], lw=0.8, label="before")
+ax[0,1].plot(tus, x_2[sl] * 1e3, color=P.SERIES[0], lw=0.8, label="after")
+ax[0,1].axhline(0, color="#999", lw=0.6); ax[0,1].set_ylim(-25, 60); ax[0,1].set_xlabel("µs"); ax[0,1].set_ylabel("mV"); ax[0,1].legend()
+ax[0,1].set_title("1 ms with many pulses (zoom on the baseline)")
+# where does each pulse start? the signal 3 samples before its rise, before vs after correction
+# (10 captures, pulses that follow another pulse within 60-400 samples vs pulses on a quiet baseline)
+B = {"before": ([], []), "after": ([], [])}
+with store.CaptureStore(SRC_STORE) as s_, _w.catch_warnings():
+    _w.simplefilter("ignore")
+    for ci in range(10):
+        v_ = s_.volts(ci)
+        xb = preprocess.Preprocessor(FS, preprocess.PreprocessConfig(pole_zero=False, baseline_tracker=False)).process(v_)
+        xa = preprocess.Preprocessor(FS, preprocess.PreprocessConfig(), pz_d).process(v_)
+        p_ = signal.find_pulses(xa, signal.noise_sigma(xa), 8.0)
+        p_ = p_[(p_ > 2000) & (p_ < xa.size - 10)]
+        g_ = np.r_[np.inf, np.diff(p_)]
+        for lab, xx in (("before", xb), ("after", xa)):
+            base = np.median(xx)
+            B[lab][0].append(xx[p_ - 4][g_ > 900] - base); B[lab][1].append(xx[p_ - 4][(g_ > 60) & (g_ < 400)] - base)
+bins = np.linspace(-25, 10, 71)
+for k_, lab in enumerate(("before", "after")):
+    clean_b, tail_b = (np.concatenate(v) * 1e3 for v in B[lab])
+    ax[1,k_].hist(clean_b, bins, histtype="step", density=True, color=P.SERIES[2], lw=1.3, label=f"after a quiet stretch ({clean_b.size})")
+    ax[1,k_].hist(tail_b, bins, histtype="step", density=True, color=P.SERIES[3], lw=1.3, label=f"on an earlier pulse's tail ({tail_b.size})")
+    ax[1,k_].axvline(0, color="#999", lw=0.6)
+    ax[1,k_].set_xlabel("level the pulse starts from (mV)"); ax[1,k_].legend(fontsize=8)
+    ax[1,k_].set_title(f"{lab}: where pulses start")
+plt.show()
+""")
+
+md(r"""
+The bottom row shows the level each pulse starts from. Before the correction (left), a
+pulse that follows another one (yellow) starts up to 15 mV *below* zero, in the
+undershoot. A height measured from zero then comes out too small, by an amount that depends
+on what came before; for a 300 mV pulse that is up to ~5 %, comparable to the detector's
+resolution. After the correction (right), every pulse starts from zero (both groups
+centred, and as narrow as the noise).
+
+## 0.6 Step 4: the expected pulse shape (template)
+
+All pulses from the detector have the same shape; only their size differs. The program
+learns this shape once: it lines up hundreds of isolated pulses with sub-sample precision
+and averages them. This **template** is used to find pulses (0.7), to measure them, and to
+separate overlapping ones (0.8).
+""")
+code(r"""
+win_ = template.extract_windows(x_2, iso_[(iso_ > 100) & (iso_ < x_2.size - 200)][:300], 10, 60)
+fig, ax = P.figure(1, 1, height_per_row=3.0)
+tw = np.arange(-10, 61)
+for w_ in win_[:150]:
+    ax[0,0].plot(tw, w_ / w_.max(), color=P.SERIES[0], alpha=0.06, lw=0.8)
+tf = np.linspace(-10, 60, 1000)
+ax[0,0].plot(tf, Tp_pz(tf) / Tp_pz(np.array([0.0]))[0], color=P.SERIES[1], lw=2, label="template")
+ax[0,0].set_xlabel("samples from the peak (1 sample = 0.56 µs)"); ax[0,0].set_ylabel("normalised"); ax[0,0].legend()
+ax[0,0].set_title("150 real pulses (blue, scaled to the same height) and the template (orange)"); plt.show()
+""")
+
+md(r"""
+## 0.7 Step 5: finding the pulses
+
+A simple threshold on the signal triggers on noise and misses pulses hidden in the tail of
+a larger one. The program instead passes the signal through an **optimal filter**: it
+compares every position with the template, weighted by how the noise behaves. The output
+has a sharp peak wherever a pulse starts, with much less noise. Pulses are accepted above
+5.5 times the filter's noise. Each accepted pulse's own response is then subtracted, so
+that its side-lobes cannot be mistaken for more pulses (*successive cancellation*).
+""")
+code(r"""
+det_ = detect.Detector(Tp_pz)
+y_f = det_.filter(x_2)
+d_ = det_.detect(x_2)
+b0 = a0                                                   # the busy stretch of 0.2
+sl = slice(b0, b0 + 600)
+tus = np.arange(sl.stop - sl.start) / FS * 1e6
+fig, ax = P.figure(2, 1, height_per_row=2.6)
+ax[0,0].plot(tus, x_2[sl] * 1e3, color=P.SERIES[0], lw=0.9)
+ax[0,0].set_ylabel("mV"); ax[0,0].set_title("before: the cleaned signal (the busy 330 µs of 0.2)")
+ax[1,0].plot(tus, y_f[sl] * 1e3, color=P.SERIES[2], lw=0.9, label="optimal filter output")
+ax[1,0].axhline(d_.threshold_v * 1e3, color=P.SERIES[3], lw=0.8, ls="--", label=f"threshold {d_.threshold_v*1e3:.1f} mV")
+inw = (d_.index >= sl.start) & (d_.index < sl.stop)
+ax[1,0].plot((d_.index[inw] - sl.start) / FS * 1e6, d_.filter_amplitude[inw] * 1e3, "v", color=P.SERIES[1], ms=7, label="detected pulses")
+for a_ in (ax[0,0],):
+    a_.plot((d_.index[inw] - sl.start) / FS * 1e6, x_2[d_.index[inw]] * 1e3, "v", color=P.SERIES[1], ms=6)
+ax[1,0].set_xlabel("µs"); ax[1,0].set_ylabel("mV"); ax[1,0].legend(fontsize=8)
+ax[1,0].set_title("after: one sharp peak per pulse, including the small ones on tails"); plt.show()
+print(f"{d_.index.size} pulses found in this capture ({d_.index.size / (x_2.size / FS):.0f} per second); "
+      f"threshold {d_.threshold_v*1e3:.2f} mV ≈ {d_.threshold_v * 3760:.0f} keV")
+""")
+
+md(r"""
+## 0.8 Step 6: separating overlapping pulses (pile-up)
+
+When two gamma rays arrive within a few microseconds, their pulses overlap. An analog MCA
+sees one distorted pulse: it either records a wrong energy or rejects both. The program
+fits a sum of templates to the cluster: one per pulse, each with its own height and
+sub-sample arrival time. The fit uses the noise model, and the remainder (residual) is
+checked for pulses that are still hidden.
+""")
+code(r"""
+ef_ = events.EventFile(ROOT / "data/events/source_first100.h5")
+ev_ = ef_.good()
+pairs = ev_[(ev_["cluster_size"] == 2) & (ev_["gap_next"] > 5) & (ev_["gap_next"] < 14) & (ev_["amplitude"] > 0.15)]
+pick = None
+for r_ in pairs:
+    if int(r_["cluster"]) in ef_._snip_by_cluster:
+        pick = r_; break
+cap_, start_, wav_ = ef_.snippet(int(pick["cluster"]))
+members = ef_.events[ef_.events["cluster"] == pick["cluster"]]
+ts = np.arange(wav_.size) + start_
+fig, ax = P.figure(1, 2, height_per_row=3.0)
+ax[0,0].plot(ts - start_, wav_ * 1e3, color="#333", lw=1.4, label="measured (clean signal)")
+ax[0,0].set_title(f"before: one bump, max {wav_.max()*1e3:.0f} mV (an MCA would record this, or reject it)")
+total = np.zeros(wav_.size)
+for k_, m_ in enumerate(members):
+    comp = m_["amplitude"] * Tp_pz(ts - (m_["index"] + m_["shift"])) / Tp_pz(np.array([0.0]))[0]
+    total += comp
+    ax[0,1].plot(ts - start_, comp * 1e3, color=P.SERIES[k_], lw=1.2, label=f"pulse {k_+1}: {m_['amplitude']*1e3:.0f} mV")
+ax[0,1].plot(ts - start_, wav_ * 1e3, color="#333", lw=1.4, alpha=0.5, label="measured")
+ax[0,1].plot(ts - start_, (wav_ - total) * 1e3, color=P.SERIES[3], lw=0.8, label="residual (measured − fit)")
+ax[0,1].set_title("after: two pulses, each measured"); ax[0,1].legend(fontsize=8)
+for a_ in ax[0]:
+    a_.set_xlabel("sample"); a_.set_ylabel("mV")
+plt.show()
+""")
+
+md(r"""
+## 0.9 The result: a sharper spectrum
+
+Here are the same 20 captures counted two ways. The *naive* count takes the highest sample
+of every bump in the raw signal, with no transformation. *gammaspec* uses everything
+above. Both are calibrated to keV the same way.
+""")
+code(r"""
+from gammaspec import benchmark, calibration, analysis
+caps20 = range(20)
+naive_ = benchmark.naive_chain(SRC_STORE, caps20)
+gs_ = benchmark.pipeline_chain(ROOT / "data/events/source_first100.h5", caps20)
+fig, ax = P.figure(1, 2, height_per_row=3.2)
+edges = np.arange(0, 2800, 8.0)
+top = 0
+for ch_, col, lab in ((naive_, P.SERIES[1], "before: naive count of the raw signal"), (gs_, P.SERIES[0], "after: gammaspec")):
+    m_ = benchmark.metrics(ch_)
+    e_ = m_.pop("_energies")
+    h_, _ = np.histogram(e_, edges)
+    r_ = h_ / ch_.live_time_s / 8
+    top = max(top, r_[(edges[:-1] > 950) & (edges[:-1] < 1500)].max())
+    for a_ in ax[0]:
+        a_.stairs(r_, edges, color=col, lw=1.1, label=f"{lab}: FWHM {m_['fwhm_pct'][0]:.1f} / {m_['fwhm_pct'][1]:.1f} %")
+ax[0,0].set_yscale("log"); ax[0,0].set_title("whole spectrum"); ax[0,0].legend(fontsize=8)
+ax[0,1].set_xlim(950, 1500); ax[0,1].set_ylim(0, top * 1.1); ax[0,1].set_title("the two ⁶⁰Co peaks: narrower, deeper valley")
+for a_ in ax[0]:
+    a_.set_xlabel("energy (keV)"); a_.set_ylabel("counts / s / keV")
+plt.show()
+""")
+
+md(r"""
+The naive count has a large excess at low energy: noise and interference counted as pulses.
+Its ⁶⁰Co peaks are 26 % wider, because pulses on tails are measured too low and
+overlapping pulses are merged.
+
+## 0.10 Step 7: from volts to keV, and removing the room background
+
+The program finds known gamma lines (⁶⁰Co at 1173 and 1332 keV, their 2506 keV sum, and ⁴⁰K
+at 1461 keV) and fits a straight line through them: energy = offset + gain × amplitude.
+The room itself is radioactive (⁴⁰K in concrete, for example). A separate measurement
+without the source is calibrated the same way and **subtracted**, per second of
+measuring time.
+""")
+code(r"""
+src_ev = events.EventFile(ROOT / "data/events/source_first100.h5")
+bkg_ev = events.EventFile(ROOT / "data/events/background.h5")
+cal_s = calibration.calibrate(src_ev.good()["amplitude"], "source")
+cal_b = calibration.calibrate(bkg_ev.good()["amplitude"], "background", reference=cal_s)
+fig, ax = P.figure(1, 3, height_per_row=3.0)
+pts = [p_ for p_ in cal_s.points if p_.accepted]
+A_ = np.array([p_.amplitude_v for p_ in pts]); E_ = np.array([p_.energy_kev for p_ in pts])
+ax[0,0].plot(A_ * 1e3, E_, "o", color=P.SERIES[0])
+for p_ in pts:
+    ax[0,0].annotate(f" {p_.label}", (p_.amplitude_v * 1e3, p_.energy_kev), fontsize=8)
+aa = np.linspace(0, A_.max() * 1.05, 10)
+ax[0,0].plot(aa * 1e3, cal_s.energy(aa), color=P.SERIES[1], lw=1)
+ax[0,0].set_xlabel("pulse amplitude (mV)"); ax[0,0].set_ylabel("energy (keV)"); ax[0,0].set_title("calibration: known lines → straight line")
+ed = np.arange(0, 3000, 10.0)
+S_ = analysis.energy_spectrum(cal_s.energy(src_ev.good()["amplitude"]), src_ev.live_time_s, ed)
+B_ = analysis.energy_spectrum(cal_b.energy(bkg_ev.good()["amplitude"]), bkg_ev.live_time_s, ed)
+N_ = analysis.subtract(S_, B_)
+for a_, lo, hi, title in ((ax[0,1], 0, 2900, "source, background, net"), (ax[0,2], 1250, 1700, "zoom: ⁴⁰K (1461 keV) disappears from the net")):
+    a_.stairs(S_.rate / 10, ed, color=P.SERIES[0], label="with source")
+    a_.stairs(B_.rate / 10, ed, color=P.SERIES[1], label="background only")
+    a_.stairs(np.clip(N_.rate / 10, 1e-4, None), ed, color=P.SERIES[2], label="net = source − background")
+    a_.set_xlim(lo, hi); a_.set_yscale("log"); a_.set_xlabel("energy (keV)"); a_.set_title(title)
+ax[0,1].set_ylabel("counts / s / keV"); ax[0,2].legend(fontsize=8); ax[0,2].axvline(1460.8, color="#999", lw=0.6, ls=":")
+plt.show()
+print(f"calibration: E = {cal_s.coeffs[0]:.1f} + {cal_s.coeffs[1]:.1f} × A(V) keV; "
+      f"background run: {100*(cal_b.coeffs[1]/cal_s.coeffs[1]-1):+.1f} % gain (measured 5 days later)")
+""")
+
+md(r"""
+## 0.11 Why a shaping amplifier struggles at high rates
+
+An analog shaping amplifier turns each 4 µs pulse into a smooth bump. The bump averages
+out noise, but it is wide: about 10 µs at its base for a 1 µs CR-RC⁴ shaper, against about
+2 µs for the optimal filter's peak. The wider the bump, the more often two of them overlap
+at 4,500 pulses/s; an MCA must then reject both, or record a wrong energy. The same stretch
+of signal is shown through both.
+""")
+code(r"""
+sh_ = benchmark.shaping_amplifier(x_1, 1 / FS, tau_shaping=1e-6)
+sl = slice(b0, b0 + 600)
+tus = np.arange(sl.stop - sl.start) / FS * 1e6
+fig, ax = P.figure(1, 1, height_per_row=3.0)
+ax[0,0].plot(tus, sh_[sl] / sh_[sl].max(), color=P.SERIES[1], lw=1.1, label="analog shaping amplifier (1 µs CR-RC⁴)")
+ax[0,0].plot(tus, y_f[sl] / y_f[sl].max() - 1.2, color=P.SERIES[2], lw=1.1, label="gammaspec optimal filter")
+ax[0,0].plot((d_.index[inw] - sl.start) / FS * 1e6, np.full(inw.sum(), 0.08) - 1.2, "|", color="#333", ms=10, label="pulses found by gammaspec")
+ax[0,0].set_yticks([]); ax[0,0].set_xlabel("µs"); ax[0,0].legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=3, frameon=False)
+ax[0,0].set_title("same signal: shaped bumps (analog) vs optimal-filter peaks (gammaspec)"); plt.show()
+""")
+
+md(r"""
+## 0.12 Live input: processing a stream in overlapping frames
+
+For live use, the signal arrives continuously. The program cuts it into **frames** of
+0.15 s. Each frame carries some extra signal before it (so the filters have settled) and
+after it (so the last pulses are complete). Each frame is processed exactly like a capture,
+and only the pulses in its middle part (the *core*) are kept. Frames are independent, so
+several are processed in parallel. If the PC falls behind a live source, a frame is
+skipped and counted as dead time.
+""")
+code(r"""
+fig, ax = plt.subplots(figsize=(11, 2.8))
+core_, pre_, post_ = 10.0, 1.6, 1.0                      # schematic: the real contexts are 1.6 % and 0.8 % of a core
+for k_ in range(4):
+    c0, y0 = k_ * core_, (3 - k_) * 0.55
+    ax.add_patch(mpatches.Rectangle((c0 - pre_, y0), pre_, 0.42, fc=P.SERIES[3]))
+    ax.add_patch(mpatches.Rectangle((c0, y0), core_, 0.42, fc=P.SERIES[0], alpha=0.9))
+    ax.add_patch(mpatches.Rectangle((c0 + core_, y0), post_, 0.42, fc=P.SERIES[2]))
+    ax.text(c0 + core_ / 2, y0 + 0.21, f"frame {k_+1}: core (pulses kept)", ha="center", va="center", color="white", fontsize=8)
+ax.set_xlim(-2, 4 * core_ + 2); ax.set_ylim(-0.1, 2.3); ax.set_yticks([]); ax.set_xticks([])
+ax.set_xlabel("time in the stream →   (not to scale: core 0.146 s, context 2.3 ms before and 1.1 ms after)")
+ax.legend(handles=[mpatches.Patch(color=P.SERIES[3], label="context before (filters settle)"),
+                   mpatches.Patch(color=P.SERIES[2], label="context after (last pulses complete)")], fontsize=8,
+          loc="upper center", bbox_to_anchor=(0.5, -0.32), ncol=2, frameon=False)
+for s_ in ("top", "right", "left"):
+    ax.spines[s_].set_visible(False)
+plt.show()
+""")
+
+md(r"""
+## 0.13 Checking against the truth: the simulator
+
+With real data, nobody knows the true energy of each pulse. The built-in **simulator**
+makes a realistic signal where every pulse is known, so the result can be checked: how many
+pulses were found, how accurately they were measured, and how many were invented.
+""")
+code(r"""
+sim_src = sources.SimulationSource(simulate.SimConfig(seed=11), duration_s=3.0)
+simulate.analytic_template().save(TMP / "t_tour.h5")
+stream.process_stream(sim_src, TMP / "t_tour.h5", TMP / "tour_events.h5", pipeline.PipelineConfig(),
+                      stream.StreamConfig(update_s=0), workers=1, verbose=False, overwrite=True)
+simulate.save_truth(TMP / "tour_truth.h5", sim_src.sim.truth_table(), sim_src.sim.cfg)
+truth_ = simulate.load_truth(TMP / "tour_truth.h5"); found_ = events.EventFile(TMP / "tour_events.h5").good()
+chk_ = simulate.compare_to_truth(TMP / "tour_events.h5", TMP / "tour_truth.h5")
+fig, ax = P.figure(1, 2, height_per_row=3.0)
+edges = np.arange(0, 2800, 10.0)
+ax[0,0].hist(truth_["energy_kev"], edges, histtype="step", color="#333", lw=1.2, label="truth (what the simulator made)")
+cal_sim = calibration.calibrate(found_["amplitude"], "source")
+ax[0,0].hist(cal_sim.energy(found_["amplitude"]), edges, histtype="step", color=P.SERIES[0], lw=1.0, label="measured by gammaspec")
+ax[0,0].set_yscale("log"); ax[0,0].set_xlabel("energy (keV)"); ax[0,0].legend(fontsize=8); ax[0,0].set_title("3 s of simulated ⁶⁰Co + room background")
+eff_ = [e_ for e_ in chk_["efficiency_by_energy"] if e_["efficiency"] is not None]
+ax[0,1].bar([f"{e_['energy_kev'][0]}–{e_['energy_kev'][1]}" for e_ in eff_], [100 * e_["efficiency"] for e_ in eff_], color=P.SERIES[2])
+ax[0,1].set_ylim(90, 100.5); ax[0,1].set_ylabel("pulses found (%)"); ax[0,1].set_xlabel("true energy (keV)")
+ax[0,1].set_title("detection efficiency"); ax[0,1].tick_params(axis="x", labelsize=7)
+plt.show()
+print(f"{chk_['true_pulses']} true pulses, {chk_['detected']} detected; {chk_['false_rate_cps']:.0f} false /s; "
+      f"close pairs resolved {100*chk_['close_pairs_resolved']:.1f} %; amplitude bias {chk_['amplitude_bias_pct']:+.2f} %")
+""")
+
+md(r"""
+## 0.14 The whole program, in one line per step
+
+| Step | In | Out | Part |
+|---|---|---|---|
+| Ingest | ASCII capture files | lossless binary store | A |
+| Characterise | isolated pulses, noise | template, pulse model, noise spectrum | B |
+| Clean | raw samples | interference removed, baseline at zero | C |
+| Detect | clean signal | pulse positions, first amplitudes | D |
+| Resolve pile-up | clusters of pulses | one amplitude and time per pulse | E |
+| Calibrate, subtract | amplitudes of two runs | keV spectra, net spectrum, line rates | G |
+| Benchmark | the same pulses | comparison with a naive count and an analog chain | H |
+| Configure, run | a run file (or the app) | all of the above, chosen step by step | I |
+| Stream, simulate | live or simulated signal | the same, continuously; checked against truth | J |
+
+The parts below show every function behind these steps, in the order it is called.
 """)
 
 # =============================================================================================
@@ -1507,6 +1990,52 @@ for e_ in c_["efficiency_by_energy"]:
 # =============================================================================================
 md(r"""
 ---
+# Part K: The app (step 11)
+
+`gammaspec app` opens a page in the browser (Streamlit, `gammaspec/app.py`). It is a front
+end for the run file of Part I:
+* **1 · Input:** where the signal comes from: raw files, a prepared store, a replay, the
+  simulator, or a live file / FIFO;
+* **2 · Processing:** the template, the stage switches (each with a one-line explanation),
+  and the analysis steps;
+* **All settings:** the complete run file as editable text, plus load and download;
+* **3 · Run:** validation (`config.check`), **Run** and **Stop**, the log, and the live
+  spectrum;
+* **4 · Results:** steps, calibration, line rates, plots, the benchmark, and the truth check
+  for simulations.
+
+## K1. `app._w(widget, label, obj, attr, key)`: a widget bound to a setting
+Each widget reads its start value from the configuration dataclass and writes the user's
+choice back into it on every rerun of the page. So the page and the run file never
+disagree. Editing the TOML text replaces the configuration and resets the widgets
+(`_replace_cfg`).
+
+## K2. `app.start_run(cfg)`, `progress_view()`, `stop_run()`
+**Run** saves `<output>/ui_run.toml` and starts `python -m gammaspec run` on it as a separate
+process. The page stays responsive, and **Stop** ends the process and its workers. Every
+2 s, `progress_view` redraws the log and the live spectrum from
+`live/<run>/live_spectrum.json`.
+
+Below, the page is driven without a browser (Streamlit's `AppTest`): choose the simulator,
+shorten the run, and look at the run file the page would start.
+""")
+code(r"""
+import logging; logging.getLogger("streamlit").setLevel(logging.ERROR)   # "bare mode" notices
+from streamlit.testing.v1 import AppTest
+at = AppTest.from_file(str(ROOT / "gammaspec" / "app.py"), default_timeout=60); at.run()
+print("default page, errors shown:", [e.value.splitlines()[1].strip() for e in at.error])
+at.radio(key="w.input.kind").set_value("simulation").run()
+at.number_input(key="w.sim.dur").set_value(5.0).run()
+at.checkbox(key="w.pp.line").set_value(False).run()
+from gammaspec import config as C
+txt = C.dumps(at.session_state["cfg"]).splitlines()
+print("errors now:", [e.value for e in at.error], "| Run enabled:", not [b for b in at.button if b.label == "Run"][0].disabled)
+print("\n".join(l for l in txt if l.startswith(("kind", "duration_s", "line_removal"))))
+""")
+
+# =============================================================================================
+md(r"""
+---
 # Part F: Evaluation tools (not part of the pipeline)
 
 These modules measure how well the pipeline works; they produced the numbers in the docs.
@@ -1577,5 +2106,15 @@ nb.cells = cells
 nb.metadata["kernelspec"] = {"name": "gammaspec", "display_name": "gammaspec (.venv)", "language": "python"}
 out = HERE / "walkthrough.ipynb"
 NotebookClient(nb, timeout=900, kernel_name="gammaspec", resources={"metadata": {"path": str(HERE)}}).execute()
+# Streamlit's "bare mode" notices (Part K) are noise in a notebook
+for c in nb.cells:
+    if c.cell_type == "code":
+        for o in c.outputs:
+            if "text" in o and "ScriptRunContext" in o["text"]:
+                o["text"] = "
+".join(l for l in o["text"].splitlines() if "ScriptRunContext" not in l and "bare mode" not in l).strip("
+") + "
+"
+        c.outputs = [o for o in c.outputs if not ("text" in o and not o["text"].strip())]
 nbf.write(nb, out)
 print("wrote", out)

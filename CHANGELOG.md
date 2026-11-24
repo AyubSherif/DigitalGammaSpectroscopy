@@ -6,6 +6,28 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-24
+
+### Added
+- Step 11, the browser app `gammaspec.app` (Streamlit) and CLI command `app`:
+  * input choice (raw files, store, replay, simulation, live file / FIFO) and stage switches
+    as widgets, with path checks and live validation;
+  * a TOML editor for every setting, and run-file load / download;
+  * Run / Stop of `gammaspec run` as a separate process, live log and live spectrum;
+  * results: steps, calibration, line rates, plots, truth check, benchmark.
+
+  Listens on localhost by default. Optional dependency `gammaspec[app]`. `docs/app.md`,
+  ADR-0013, `tests/test_app.py`.
+- Walkthrough Part 0, "The app in pictures": one capture through every step, with 13
+  before/after figures and plain-language explanations; Part K (the app).
+
+### Changed
+- README rewritten: what the software is, which analog instruments it replaces (shaping
+  amplifier, pile-up rejector, MCA) and why (cost, portability, high-rate performance, data
+  kept), results at a glance, background.
+- The signal chain is described correctly as PMT → preamplifier → ADC → PC (not a raw PMT
+  signal). The benchmark's analog emulation therefore uses the real preamplifier output.
+
 ## [0.2.0] - 2026-11-24
 
 ### Added

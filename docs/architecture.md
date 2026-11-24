@@ -7,7 +7,7 @@ choices see the [ADRs](adr/).
 ## Signal chain and measured properties
 
 ```text
-NaI(Tl) crystal → PMT → ADC (1.8 MS/s) → ASCII capture files → gammaspec
+NaI(Tl) crystal → PMT → preamplifier → ADC (1.8 MS/s) → PC (ASCII capture files) → gammaspec
 ```
 
 Properties measured from the data, which drive the design (details and figures in
@@ -17,7 +17,7 @@ Properties measured from the data, which drive the design (details and figures i
 |---|---|---|
 | Polarity | negative-going pulses | the pipeline flips the sign internally |
 | Rise | τ = 0.245 µs (the NaI(Tl) light decay); about 1 sample | the peak is defined by 1–2 samples, so the peak-sample height depends on sampling phase; energies need a fit with sub-sample timing |
-| Decay | τ = 4.1 µs (7.4 samples), set by the PMT output circuit | the pulse shape is stable and independent of amplitude (< 1 %), which suits template methods |
+| Decay | τ = 4.1 µs (7.4 samples), set by the preamplifier | the pulse shape is stable and independent of amplitude (< 1 %), which suits template methods |
 | Undershoot | −4.3 % of the peak at +26 µs; τ = 42 µs and 176 µs; net pulse area ≈ 0 | it comes from AC coupling, so pole-zero correction can remove it; this is the basis of baseline restoration |
 | Source count rate | ≈ 4,300 pulses/s (⁶⁰Co run) | average gap between pulses ≈ 420 samples, so almost every pulse sits on an earlier pulse's undershoot; ≈ 21 % lack a clean main lobe |
 | Background count rate | ≈ 740 pulses/s (quiet captures) | |
@@ -86,6 +86,7 @@ process a live stream, not just stored files.
 | `gammaspec/sources.py` | Signal sources yielding chunks: `StoreSource`, `RawSource`, `SimulationSource`, `PipeSource` (stdin / FIFO), `Paced` (real time) |
 | `gammaspec/stream.py` | `StreamProcessor`: overlapping frames through the capture pipeline (parallel, live frame dropping), `LiveSpectrum`, `process_stream` |
 | `gammaspec/liveplot.py` | Live spectrum window for `gammaspec stream --show` |
+| `gammaspec/app.py` | Browser app (Streamlit): widgets and a TOML editor for the run file, Run / Stop of `gammaspec run` as a separate process, live spectrum, results |
 | `gammaspec/cli.py`, `__main__.py` | Command-line entry point: `python -m gammaspec …` |
 | `tests/` | Unit tests (synthetic captures) and real-data checks that are skipped when the data is absent |
 

@@ -343,6 +343,17 @@ def _cmd_stream(args) -> int:
     return 0
 
 
+def _cmd_app(args) -> int:
+    try:
+        import streamlit  # noqa: F401
+    except ImportError:
+        print("the app needs Streamlit: pip install \"gammaspec[app]\" (or: pip install streamlit)")
+        return 1
+    from .app import launch
+
+    return launch(args.port, open_browser=not args.no_browser, address=args.address)
+
+
 def _cmd_run(args) -> int:
     from . import config as C
     from .runner import StepError, run
@@ -503,6 +514,13 @@ def main(argv: list[str] | None = None) -> int:
     pt.add_argument("--config", help="run file to start from")
     pt.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a run-file setting (repeatable)")
     pt.set_defaults(func=_cmd_stream)
+
+    pa = sub.add_parser("app", help="open the browser UI (choose input, stages and settings; run; live spectrum)")
+    pa.add_argument("--port", type=int, help="port (default 8501)")
+    pa.add_argument("--no-browser", action="store_true", help="do not open a browser window")
+    pa.add_argument("--address", default="localhost",
+                    help="network address to listen on (default localhost: this computer only)")
+    pa.set_defaults(func=_cmd_app)
 
     pr = sub.add_parser("run", help="run the configured chain: input -> template -> events -> spectrum -> benchmark")
     pr.add_argument("config", help="run file (.toml or .json), e.g. from 'gammaspec config init'")

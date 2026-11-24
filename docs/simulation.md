@@ -1,6 +1,6 @@
 # Signal simulator (step 10)
 
-`gammaspec.simulate` produces a realistic NaI(Tl) PMT waveform with known content, so the
+`gammaspec.simulate` produces a realistic NaI(Tl) preamplifier waveform with known content, so the
 pipeline can be tested beyond the recorded data. You can vary the source, rates, resolution,
 noise and pulse shape, and score the result against the **truth**: every pulse the simulator
 made.

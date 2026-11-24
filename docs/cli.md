@@ -304,3 +304,18 @@ gammaspec stream sim out/sim --duration 20 --show
 gammaspec simulate - --realtime | gammaspec stream - out/pipe --template data/characterization/background/template.h5
 gammaspec stream data/source_first100.h5 out/replay --template data/characterization/background/template.h5 --realtime
 ```
+
+## `app`
+
+The browser app ([app.md](app.md)): choose the input and the stages, run, watch the live
+spectrum, see the results. Needs `pip install "gammaspec[app]"`.
+
+```bash
+gammaspec app [--port 8501] [--no-browser] [--address localhost]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--port` | 8501 | port of the page |
+| `--no-browser` | off | do not open a browser window |
+| `--address` | `localhost` | network address to listen on (`0.0.0.0` makes it reachable from other computers: trusted networks only) |

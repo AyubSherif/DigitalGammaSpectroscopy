@@ -6,7 +6,7 @@
 python -m venv .venv
 .venv\Scripts\activate            # Windows (PowerShell: .venv\Scripts\Activate.ps1)
 source .venv/bin/activate         # Linux/macOS
-pip install -e ".[dev]"
+pip install -e ".[app,dev]"
 ```
 
 `pyproject.toml` declares the package and its minimum dependency versions.

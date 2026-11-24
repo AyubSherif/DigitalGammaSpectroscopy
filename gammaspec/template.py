@@ -308,8 +308,8 @@ def _exp_gauss(x: np.ndarray, tau: float, sigma: float) -> np.ndarray:
 def multiexp_model(t: np.ndarray, t0: float, sigma: float, taus, amps_rest) -> np.ndarray:
     """s(t) = sum_k a_k exp(-(t-t0)/tau_k) for t > t0, smoothed by a Gaussian of width sigma.
 
-    The first amplitude is fixed by sum(a_k) = 0, so the pulse starts from zero (the PMT
-    current is integrated, so the voltage starts continuously from the baseline).
+    The first amplitude is fixed by sum(a_k) = 0, so the pulse starts from zero (the
+    preamplifier integrates the PMT current, so the voltage starts continuously from the baseline).
     """
     amps = np.concatenate([[-np.sum(amps_rest)], amps_rest])
     x = np.asarray(t, dtype=np.float64) - t0

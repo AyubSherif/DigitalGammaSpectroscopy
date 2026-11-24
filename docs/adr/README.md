@@ -18,5 +18,6 @@ that is reversed gets a new record that supersedes the old one.
 | [0010](0010-benchmark-on-same-data.md) | Benchmark against a naive count and an emulated analog chain on the same data | Accepted |
 | [0011](0011-run-configuration.md) | One TOML run file, mirroring the config dataclasses, run by an incremental runner | Accepted |
 | [0012](0012-streaming-overlapping-frames.md) | Stream by overlapping frames through the unchanged capture pipeline; validate with a simulator | Accepted |
+| [0013](0013-browser-app.md) | A Streamlit browser app as a front end for the run file, running runs as a separate process | Accepted |
 
 New records: copy the structure of an existing one, take the next number.

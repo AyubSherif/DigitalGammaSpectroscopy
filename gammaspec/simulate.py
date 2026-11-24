@@ -1,4 +1,4 @@
-"""Signal simulator: a synthetic NaI(Tl) PMT waveform, continuous and chunk by chunk (step 10).
+"""Signal simulator: a synthetic NaI(Tl) preamplifier waveform (PMT -> preamp -> ADC), continuous and chunk by chunk (step 10).
 
 The simulator is a test source that is not limited to the recorded data. Every pulse it
 makes is known (the *truth*), so the pipeline can be scored against it
@@ -23,7 +23,7 @@ Model, per decay or background event:
    and arrival times at sub-sample precision. The shape is the measured pulse (default: its
    analytic model, or a template file), including the AC-coupling undershoot. Then come
    Gaussian noise (white, or shaped like a measured noise spectrum), interference
-   sinusoids, a DC offset, the polarity of the PMT signal (negative) and ADC quantisation.
+   sinusoids, a DC offset, the polarity of the preamplifier signal (negative) and ADC quantisation.
 
 ``Simulator.read(n)`` returns the next n samples. The waveform is continuous across calls
 whatever their length: pulses straddling a chunk boundary are completed in the next chunk,
@@ -75,7 +75,7 @@ class SimConfig:
     fwhm_pct_662: float = 8.0             # intrinsic resolution at 662 keV (scales as 1/sqrt(E))
     gain_kev_per_v: float = 3760.0        # pulse amplitude (V) = energy / gain
     fs: float = 1.8e6                     # sample rate (Hz)
-    polarity: int = -1                    # -1: negative-going PMT pulses (as recorded)
+    polarity: int = -1                    # -1: negative-going pulses (as recorded)
     offset_v: float = 0.004               # DC offset of the signal
     noise_v: float = 0.0006               # rms of the Gaussian noise
     noise_psd: str = ""                   # noise.h5 from characterize: shape the noise like it ("" = white)
