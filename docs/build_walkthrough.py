@@ -41,6 +41,7 @@ The order follows the data:
 | D | 4. Detection and events | optimal filter → successive cancellation → event list |
 | E | 5–6. Pile-up resolution | TM, HYPER and least-squares fits on a real cluster; the pile-up solver in the pipeline |
 | G | 7. Calibration and background subtraction | keV axis for each run, gain matching, net spectrum |
+| H | Benchmark | the same pulses through a naive `find_peaks` count, an emulated analog chain and gammaspec |
 | F | Evaluation tools | how the numbers in the docs were measured |
 
 Conventions: time is in **samples** (1 sample = 1/1.8 MHz = 0.556 µs) unless stated;
@@ -1091,7 +1092,9 @@ net spectrum.
 
 ## G1. `calibration.anchor_gain(amplitudes, kind)`
 A first gain (keV per volt) from an unmistakable line. `_peaks_in` histograms the
-amplitudes, smooths them, and returns the most prominent peaks.
+amplitudes between their median and 99.5th percentile (400 bins), smooths them, and returns
+the most prominent peaks. Starting at the median keeps a crowd of small (noise) triggers
+from swamping the search (this matters for the naive chain of Part H).
 * **source:** the pair of peaks whose centre ratio is closest to 1332.5 / 1173.2 = 1.1357
   (within 2 %) is ⁶⁰Co: gain = mean(1173.2 / A₁, 1332.5 / A₂);
 * **background:** the strongest peak is ⁴⁰K: gain = 1460.8 / A.
@@ -1114,8 +1117,9 @@ group and are fitted together by `spectrum.fit_peaks` with **bounds**: centre ±
 0.5–2× the expected NaI resolution
 $\sigma(E) = E \cdot \tfrac{0.065}{2.3548}\sqrt{1173/E}$ (`expected_sigma_rel`), area ≥ 0.
 A line is accepted if its area is ≥ 4σ, its centre and width are not at a bound, and its
-FWHM is 2.5–15 %. If one is rejected, the least significant rejected line is dropped and
-the rest of the group refitted, until all remaining lines are accepted.
+FWHM is 2.5–15 %. If any are rejected, one is dropped and the rest of the group refitted,
+until all remaining lines are accepted. Lines whose centre or width is at a bound are
+dropped first (they are the degenerate ones), then the least significant.
 """)
 code(r"""
 pts = calibration.fit_lines(src_good["amplitude"], calibration.SOURCE_LINES, g_src)
@@ -1223,6 +1227,93 @@ w_ = np.diff(edges_)
 ax[0,0].stairs(S_.rate / w_, edges_, label="source"); ax[0,0].stairs(B_.rate / w_, edges_, label="background")
 ax[0,0].stairs(np.clip(N_.rate / w_, 1e-4, None), edges_, label="net (clipped at 1e-4)")
 ax[0,0].set_yscale("log"); ax[0,0].set_xlabel("energy (keV)"); ax[0,0].set_ylabel("counts / s / keV"); ax[0,0].legend(); plt.show()
+""")
+
+# =============================================================================================
+md(r"""
+---
+# Part H: Benchmark (naive count vs analog chain vs gammaspec)
+
+The same captures through three chains; each is calibrated by `calibration.calibrate`
+(Part G) and measured with the same metrics. Results on 100 captures: `docs/benchmark.md`.
+Here, 5 captures to keep it quick.
+
+## H1. `benchmark.naive_chain(store, captures, k=5, distance=5)`
+No transformation: flip polarity, subtract the median, then `scipy.signal.find_peaks` with
+height > k·σ (`signal.noise_sigma`) and ≥ `distance` samples between peaks. The pulse
+height is the highest sample. Pulses on an undershoot are measured low, noise maxima count
+as pulses, and pile-up merges or splits pulses.
+""")
+code(r"""
+from gammaspec import benchmark
+caps5 = range(5)
+naive = benchmark.naive_chain(SRC_STORE, caps5)
+print(f"{naive.n_recorded} 'pulses' in {naive.live_time_s:.2f} s = {naive.n_recorded/naive.live_time_s:.0f} /s;  smallest heights (mV):", np.round(np.sort(naive.amplitudes)[:5]*1e3, 2))
+""")
+
+md(r"""
+## H2. `benchmark.shaping_amplifier(x, dt, tau_shaping, tau_pz, n_integrators=4)`
+The digital version of the analog shaping amplifier, CR-RC⁴ with pole-zero cancellation.
+With $a = e^{-\Delta t/\tau}$ for each time constant:
+
+$$H(z) = \underbrace{\frac{1 - a_{pz} z^{-1}}{1 - a_s z^{-1}}}_{\text{PZ-cancelled CR}}\;
+\left(\frac{1 - a_s}{1 - a_s z^{-1}}\right)^{4}$$
+
+The CR zero at $a_{pz}$ cancels the pulse's own 4.1 µs decay pole, so the input becomes a
+clean $\tau_s$ exponential. Four RC integrators then make it a semi-Gaussian
+$\propto t^4 e^{-t/\tau_s}$. In continuous time this peaks at $4\tau_s$; each zero-delay
+digital stage runs ~½ sample ahead, so the sampled peak comes ≈ 2.5 samples earlier.
+""")
+code(r"""
+k_ = np.arange(120); xp = np.where(k_ >= 10, np.exp(-(k_ - 10) / FS / 4.1e-6), 0.0)
+fig, ax = P.figure(1, 1, height_per_row=2.8)
+ax[0,0].plot(k_, xp, color=P.SERIES[7], label="input: 4.1 µs exponential")
+for i_, ts in enumerate([0.5e-6, 1e-6, 2e-6]):
+    y_ = benchmark.shaping_amplifier(xp, 1 / FS, ts)
+    ax[0,0].plot(k_, y_ / y_.max(), color=P.SERIES[i_], label=f"CR-RC⁴ τ = {ts*1e6:g} µs (normalised)")
+    print(f"tau {ts*1e6:g} us: peak {np.argmax(y_) - 10} samples after the step, gain {y_.max():.3f}, end value {y_[-1]:.1e}")
+ax[0,0].set_xlabel("sample"); ax[0,0].legend(); plt.show()
+""")
+
+md(r"""
+## H3. `benchmark.analog_chain(store, captures, tau_shaping, tau_pz, lld_sigma=5, dead_time=5e-6, pur=True)`
+Per capture:
+1. **shape** (H2);
+2. **discriminate**: peaks of the shaped signal above 5σ, with σ from the negative side
+   (`detect.negative_side_sigma`; differences between samples would underestimate the noise
+   of a smooth signal);
+3. **baseline restorer**: subtract `track_baseline` of the pulse-free samples;
+4. **peak-hold ADC**: parabolic interpolation through the three samples around each maximum,
+   $A = y_0 - \tfrac14 (y_- - y_+)\,\delta$ with $\delta = \tfrac{y_- - y_+}{2(y_- - 2y_0 + y_+)}$;
+5. **pile-up rejector**: drop both pulses if two triggers are < 10 τ apart;
+6. **dead time**: no conversion for 5 µs after each accepted one (non-extending).
+
+The live-time clock stops during conversions and for rejected pile-up.
+""")
+code(r"""
+ana = benchmark.analog_chain(SRC_STORE, caps5, tau_shaping=1e-6, pur=True)
+print(f"triggers {ana.n_triggers}, recorded {ana.n_recorded} ({100*ana.n_recorded/ana.n_triggers:.1f} %), live {ana.live_time_s:.3f} of {ana.real_time_s:.3f} s ({100*ana.live_time_s/ana.real_time_s:.1f} %)")
+""")
+
+md(r"""
+## H4. `benchmark.pipeline_chain(events, captures)` and `benchmark.metrics(chain)`
+`pipeline_chain` takes the good events of the event file. `metrics` calibrates a chain and
+returns, among others:
+* the FWHM of 1173/1332 keV (joint bounded Gaussian fit, 1040–1440 keV, 2 keV bins);
+* the valley-to-peak ratio (minimum between the peaks / mean peak maximum);
+* the peak rates per live second (`analysis.fit_line_groups`);
+* the pile-up continuum (1450–2450 keV);
+* the low-energy threshold (1st percentile of recorded energies below 300 keV).
+
+`run_benchmark` does this for all five chains and writes the summary and plot (CLI
+`gammaspec benchmark`).
+""")
+code(r"""
+pipe = benchmark.pipeline_chain(ROOT / "data/events/source_first100.h5", caps5)
+for ch in (naive, ana, pipe):
+    m_ = benchmark.metrics(ch)
+    print(f"{m_['name']:42s} FWHM {m_['fwhm_pct'][0]:.2f}/{m_['fwhm_pct'][1]:.2f} %  valley/peak {m_['valley_to_peak']:.3f}  threshold {m_['low_energy_threshold_kev']:.0f} keV")
+print("(5 captures only: widths and valleys fluctuate by up to ~1 % here; docs/benchmark.md uses 100)")
 """)
 
 # =============================================================================================

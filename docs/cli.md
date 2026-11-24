@@ -199,3 +199,22 @@ Prints the calibrations and their residuals, the ⁶⁰Co and ⁴⁰K rates in t
 background and net spectra, total rates, and the gain drift. Writes
 `calibration_source.json`, `calibration_background.json`, `spectrum.csv`,
 `spectrum_summary.json`, `calibration.png`, `spectrum.png` and `spectrum_zoom.png`.
+
+## `benchmark`
+
+Compare gammaspec with a naive `scipy.signal.find_peaks` count and an emulated analog
+chain (CR-RC⁴ shaping amplifier, baseline restorer, peak-hold ADC, pile-up rejector, dead
+time) on the same captures ([benchmark.md](benchmark.md)).
+
+```bash
+gammaspec benchmark STORE.h5 EVENTS.h5 OUT_DIR [--first 0] [--n 100]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--first` | 0 | first capture |
+| `--n` | 100 | number of captures (0 = all; the analog emulation runs at about real time) |
+
+`EVENTS.h5` must be the event file of `STORE.h5`. Prints FWHM (% and keV), valley-to-peak,
+peak rates, pile-up continuum and live fraction for each chain. Writes
+`benchmark_summary.json` and `benchmark_spectra.png`.

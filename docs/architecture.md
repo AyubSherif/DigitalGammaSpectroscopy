@@ -77,6 +77,7 @@ process a live stream, not just stored files.
 | `gammaspec/calibration.py` | Energy calibration: anchor, bounded line fits, calibration curve, gain matching, gain vs time |
 | `gammaspec/analysis.py` | Energy spectra, live-time normalisation, background subtraction, net line rates, outputs (step 7) |
 | `gammaspec/spectrum.py` | Gaussian peak fits on a linear background (resolution, centroids) |
+| `gammaspec/benchmark.py` | Benchmark chains on the same captures: naive `find_peaks`, emulated analog CR-RC⁴ chain (BLR, peak-hold, PUR, dead time, live-time clock), gammaspec; common metrics |
 | `gammaspec/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |
 | `gammaspec/plotting.py` | Shared figure style (validated colour palette, recessive axes) |
 | `gammaspec/cli.py`, `__main__.py` | Command-line entry point: `python -m gammaspec …` |

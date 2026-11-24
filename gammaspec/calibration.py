@@ -97,9 +97,14 @@ def _peaks_in(a: np.ndarray, lo: float, hi: float, bin_width: float, n: int):
 def anchor_gain(amplitudes: np.ndarray, kind: str) -> float:
     """First estimate of keV per volt."""
     a = np.asarray(amplitudes)
-    top = np.quantile(a, 0.999)
+    a = a[np.isfinite(a) & (a > 0)]
+    # search between the median and the 99.5th percentile: the full-energy peaks lie above
+    # the (low-energy dominated) median, and a few very large pulses (muons) must not
+    # stretch the range so far that the peaks fall outside it or into one bin
+    lo, top = np.quantile(a, 0.5), np.quantile(a, 0.995)
+    bw = (top - lo) / 400
     if kind == "source":
-        cand = _peaks_in(a, 0.1 * top, top, top / 500, 6)
+        cand = _peaks_in(a, lo, top, bw, 6)
         best = None
         for i in range(cand.size):
             for j in range(i + 1, cand.size):
@@ -110,7 +115,7 @@ def anchor_gain(amplitudes: np.ndarray, kind: str) -> float:
             raise ValueError("could not find the 60Co pair (two peaks with ratio 1.136)")
         return float(np.mean([1173.228 / best[1], 1332.492 / best[2]]))
     if kind == "background":
-        cand = _peaks_in(a, 0.1 * top, top, top / 500, 1)
+        cand = _peaks_in(a, lo, top, bw, 1)
         if cand.size == 0:
             raise ValueError("no peak found for the 40K anchor")
         return float(1460.820 / cand[0])
@@ -154,7 +159,14 @@ def fit_lines(amplitudes: np.ndarray, lines, gain: float, group_rel: float = 0.1
             bad = [p for p in res if not p.accepted]
             if not bad or len(active) == 1:
                 break
-            worst = min(bad, key=lambda p: p.area / max(p.area_err, 1e-30) if np.isfinite(p.area_err) else -1)
+            # A line whose centre or width ran to its bound was pulled onto a neighbour:
+            # drop those first; among the rest, the least significant.
+            def badness(p):
+                at_bound = p.note.startswith("centre") or p.note.startswith("width pinned")
+                sig = p.area / max(p.area_err, 1e-30) if np.isfinite(p.area_err) else -1.0
+                return (0 if at_bound else 1, sig)
+
+            worst = min(bad, key=badness)
             dropped[(worst.label, worst.energy_kev)] = worst
             active = [ln for ln in active if ln != (worst.label, worst.energy_kev)]
         final = {(p.label, p.energy_kev): p for p in res}

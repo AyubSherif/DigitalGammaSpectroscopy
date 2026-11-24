@@ -6,6 +6,21 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `gammaspec.benchmark` and CLI command `benchmark`: the pipeline vs a naive
+  `scipy.signal.find_peaks` count vs an emulated analog chain (CR-RC⁴ shaping amplifier with
+  pole-zero, baseline restorer, peak-hold ADC, pile-up rejector, dead time, live-time clock)
+  on the same captures, with common metrics (FWHM, valley-to-peak, peak rates, pile-up
+  continuum, threshold, live fraction); `docs/benchmark.md`, ADR-0010, walkthrough Part H.
+- Full 3-hour run results in `docs/spectrum.md` (4,786 captures, 6.38 M events, gain stable
+  to 0.11 % rms, net ⁴⁰K consistent with zero).
+
+### Changed
+- `calibration.anchor_gain` searches between the median and the 99.5th percentile of the
+  amplitudes, so the ⁶⁰Co pair is found even when many small (noise) triggers are present.
+- `calibration.fit_lines` drops lines whose centre or width is at a bound before the least
+  significant ones, so a real line is not dropped in favour of a degenerate neighbour.
+
 ### Fixed
 - `PoleZero` started from the first sample's value, which the filter's DC gain turned
   into a slowly decaying offset of up to ~0.2 V (hidden by the baseline tracker). It now

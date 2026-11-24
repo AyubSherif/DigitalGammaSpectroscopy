@@ -15,5 +15,6 @@ that is reversed gets a new record that supersedes the old one.
 | [0007](0007-optimal-filter-successive-cancellation.md) | Detect pulses with a per-capture optimal filter and successive cancellation | Accepted |
 | [0008](0008-pileup-weighted-least-squares.md) | Resolve pile-up with weighted least squares and sub-sample timing | Accepted |
 | [0009](0009-calibration-per-run.md) | Calibrate each run on its own lines; gain-match short runs to a reference | Accepted |
+| [0010](0010-benchmark-on-same-data.md) | Benchmark against a naive count and an emulated analog chain on the same data | Accepted |
 
 New records: copy the structure of an existing one, take the next number.

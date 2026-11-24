@@ -208,6 +208,28 @@ def _cmd_report(args) -> int:
     return 0
 
 
+def _cmd_benchmark(args) -> int:
+    from .benchmark import run_benchmark
+
+    caps = range(args.first, args.first + args.n) if args.n else None
+    try:
+        s = run_benchmark(args.store, args.events, args.out, captures=caps)
+    except ValueError as exc:   # too few counts to calibrate a chain
+        print(f"benchmark failed: {exc}. Use more captures (--n; 100 recommended).")
+        return 1
+    print(f"\n{'chain':46s} {'FWHM 1173/1332 %':>18s} {'keV':>13s} {'valley/peak':>12s} "
+          f"{'peaks cps':>13s} {'pile-up cps':>12s} {'live %':>7s}")
+    for r in s["chains"]:
+        pr = r["peak_rates_cps"]
+        print(f"{r['name']:46s} {r['fwhm_pct'][0]:8.2f}/{r['fwhm_pct'][1]:<8.2f} "
+              f"{r['fwhm_kev'][0]:6.1f}/{r['fwhm_kev'][1]:<6.1f} {r['valley_to_peak']:12.3f} "
+              f"{pr['Co-60 1173'][0]:6.0f}/{pr['Co-60 1332'][0]:<6.0f} {r['pileup_continuum_cps']:12.1f} "
+              f"{100 * r['live_fraction']:7.1f}")
+    print(f"typical 3x3 NaI(Tl) with an analog chain (another detector): {s['literature_3x3_nai_analog']}")
+    print(f"outputs in {args.out}")
+    return 0
+
+
 def _cmd_spectrum(args) -> int:
     from .analysis import analyze
 
@@ -321,6 +343,14 @@ def main(argv: list[str] | None = None) -> int:
     ps.add_argument("--bin-kev", type=float, default=5.0, help="bin width in keV (default 5)")
     ps.add_argument("--emax", type=float, default=3000.0, help="upper end of the spectrum in keV")
     ps.set_defaults(func=_cmd_spectrum)
+
+    pb = sub.add_parser("benchmark", help="gammaspec vs naive find_peaks vs an emulated analog chain")
+    pb.add_argument("store", help="HDF5 capture store")
+    pb.add_argument("events", help="event file of the same store (the gammaspec chain)")
+    pb.add_argument("out", help="output directory")
+    pb.add_argument("--first", type=int, default=0, help="first capture (default 0)")
+    pb.add_argument("--n", type=int, default=100, help="number of captures (default 100; 0 = all)")
+    pb.set_defaults(func=_cmd_benchmark)
 
     args = p.parse_args(argv)
     if getattr(args, "lsb", None) is None and hasattr(args, "lsb"):

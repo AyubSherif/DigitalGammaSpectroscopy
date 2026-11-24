@@ -10,7 +10,9 @@ separate background run.
 
 > **Status: v0.1.** The full offline chain works: ingestion, characterisation,
 > pre-processing, detection, pile-up resolution, calibration and background
-> subtraction. Next: the full 3-hour run, user-selectable stages, streaming.
+> subtraction, run on the full 3-hour dataset (6.4 M events in 19 min, 75× smaller
+> than the raw text), and benchmarked against a naive peak count and an emulated analog
+> chain. Next: user-selectable stages, streaming.
 > See [Roadmap](#roadmap).
 
 ## Why
@@ -78,13 +80,30 @@ with CaptureStore("data/source_first100.h5") as store:
 | [docs/detection.md](docs/detection.md) | Event detection and the event list: method, evaluation, results |
 | [docs/pileup-benchmark.md](docs/pileup-benchmark.md) | Pile-up methods compared on synthetic and real pile-ups |
 | [docs/pileup-solver.md](docs/pileup-solver.md) | The pile-up solver in the pipeline: method, tuning, results |
-| [docs/spectrum.md](docs/spectrum.md) | Energy calibration, gain matching, background subtraction |
+| [docs/spectrum.md](docs/spectrum.md) | Energy calibration, gain matching, background subtraction; first-100 and full-run results |
+| [docs/benchmark.md](docs/benchmark.md) | gammaspec vs naive `find_peaks` vs an emulated analog chain vs typical analog NaI(Tl) systems |
 | [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths |
 | [docs/data-formats.md](docs/data-formats.md) | Raw capture format, HDF5 store schema, index CSV |
 | [docs/cli.md](docs/cli.md) | Command-line reference |
 | [docs/development.md](docs/development.md) | Environment setup, testing, conventions |
 | [docs/adr/](docs/adr/) | Architecture Decision Records: why things are the way they are |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
+
+## Results at a glance
+
+Same 100 captures of the ⁶⁰Co run through three chains, each calibrated the same way
+([details](docs/benchmark.md)):
+
+| | naive `find_peaks` | analog CR-RC⁴ 0.5 µs + PUR (emulated) | **gammaspec** |
+|---|---|---|---|
+| FWHM at 1173 / 1332 keV | 8.27 / 7.44 % | 6.95 / 6.21 % | **6.54 / 6.05 %** |
+| Valley-to-peak | 0.39 | 0.24 | **0.215** |
+| Low-energy threshold | none (noise) | ≈ 44 keV | **≈ 6 keV** |
+| Pile-up | merged / split | rejected | **resolved** |
+
+Typical 3″×3″ NaI(Tl) with analog electronics: ≈ 7 % at 662 keV and ≈ 5 % at 1332 keV.
+Those are other detectors, and resolution at 1.3 MeV is set mostly by the crystal and the
+PMT.
 
 ## Roadmap
 
@@ -94,6 +113,7 @@ with CaptureStore("data/source_first100.h5") as store:
 4. ✅ Event detection (optimal filter + successive cancellation) and the event list ([results](docs/detection.md))
 5. ✅ Pile-up benchmark: template matching vs HYPER vs least-squares fits ([results](docs/pileup-benchmark.md))
 6. ✅ Pile-up solver: weighted least squares with sub-sample timing and a search for hidden pulses ([results](docs/pileup-solver.md))
-7. ✅ Energy calibration, gain matching and background subtraction ([results](docs/spectrum.md))
-8. ⬜ User-selectable stages (pipeline configuration)
-9. ⬜ Streaming input and live spectrum
+7. ✅ Energy calibration, gain matching and background subtraction ([results](docs/spectrum.md)); full 3-hour run processed
+8. ✅ Benchmark: naive `find_peaks` count and an emulated preamp + shaping amp + MCA chain on the same data, plus typical published analog NaI(Tl) values ([results](docs/benchmark.md))
+9. ⬜ User-selectable stages (pipeline configuration)
+10. ⬜ Streaming input and live spectrum
