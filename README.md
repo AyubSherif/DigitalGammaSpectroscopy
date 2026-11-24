@@ -72,22 +72,26 @@ with CaptureStore("data/source_first100.h5") as store:
 
 ## Documentation
 
-| Document | Contents |
-|---|---|
-| [docs/architecture.md](docs/architecture.md) | Pipeline design, module map, how the stages fit together |
-| [docs/characterization.md](docs/characterization.md) | Measured pulse shape, noise and preliminary spectra of the 2021 data |
-| [docs/baseline-restoration.md](docs/baseline-restoration.md) | Interference removal, pole-zero correction, baseline tracker: method and results |
-| [docs/detection.md](docs/detection.md) | Event detection and the event list: method, evaluation, results |
-| [docs/pileup-benchmark.md](docs/pileup-benchmark.md) | Pile-up methods compared on synthetic and real pile-ups |
-| [docs/pileup-solver.md](docs/pileup-solver.md) | The pile-up solver in the pipeline: method, tuning, results |
-| [docs/spectrum.md](docs/spectrum.md) | Energy calibration, gain matching, background subtraction; first-100 and full-run results |
-| [docs/benchmark.md](docs/benchmark.md) | gammaspec vs naive `find_peaks` vs an emulated analog chain vs typical analog NaI(Tl) systems |
-| [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths |
-| [docs/data-formats.md](docs/data-formats.md) | Raw capture format, HDF5 store schema, index CSV |
-| [docs/cli.md](docs/cli.md) | Command-line reference |
-| [docs/development.md](docs/development.md) | Environment setup, testing, conventions |
-| [docs/adr/](docs/adr/) | Architecture Decision Records: why things are the way they are |
-| [CHANGELOG.md](CHANGELOG.md) | Release history |
+In reading order: each document with the code it describes. Steps 2–9 follow the
+data through the pipeline, so they can be reviewed one by one, side by side with
+their modules.
+
+| # | Document | Contents | Code |
+|---|---|---|---|
+| 1 | [docs/architecture.md](docs/architecture.md) | Overview: pipeline design, module map, how the stages fit together | all (module map) |
+| 2 | [docs/data-formats.md](docs/data-formats.md) | Step 1: raw capture format, HDF5 store schema, index CSV, event-file format | [rawio.py](gammaspec/rawio.py), [store.py](gammaspec/store.py), [events.py](gammaspec/events.py) |
+| 3 | [docs/characterization.md](docs/characterization.md) | Step 2: measured pulse shape, pulse template, noise and preliminary spectra | [signal.py](gammaspec/signal.py), [template.py](gammaspec/template.py), [noise.py](gammaspec/noise.py), [characterize.py](gammaspec/characterize.py), [spectrum.py](gammaspec/spectrum.py), [plotting.py](gammaspec/plotting.py) |
+| 4 | [docs/baseline-restoration.md](docs/baseline-restoration.md) | Step 3: interference removal, pole-zero correction, baseline tracker: method and results | [interference.py](gammaspec/interference.py), [baseline.py](gammaspec/baseline.py), [preprocess.py](gammaspec/preprocess.py), [restoration.py](gammaspec/restoration.py) |
+| 5 | [docs/detection.md](docs/detection.md) | Step 4: event detection and the event list: method, evaluation, results | [detect.py](gammaspec/detect.py), [events.py](gammaspec/events.py), [pipeline.py](gammaspec/pipeline.py), [detection_eval.py](gammaspec/detection_eval.py) |
+| 6 | [docs/pileup-benchmark.md](docs/pileup-benchmark.md) | Step 5: pile-up methods (TM, HYPER, LS/GLS/WLS) compared on synthetic and real pile-ups | [pileup.py](gammaspec/pileup.py), [pileup_eval.py](gammaspec/pileup_eval.py) |
+| 7 | [docs/pileup-solver.md](docs/pileup-solver.md) | Step 6: the pile-up solver in the pipeline: method, tuning, results | [solver.py](gammaspec/solver.py), [pipeline.py](gammaspec/pipeline.py) (`_solve_clusters`, `spectrum_report`) |
+| 8 | [docs/spectrum.md](docs/spectrum.md) | Step 7: energy calibration, gain matching, background subtraction; first-100 and full-run results | [calibration.py](gammaspec/calibration.py), [analysis.py](gammaspec/analysis.py), [spectrum.py](gammaspec/spectrum.py) |
+| 9 | [docs/benchmark.md](docs/benchmark.md) | Step 8: gammaspec vs naive `find_peaks` vs an emulated analog chain vs typical analog NaI(Tl) systems | [benchmark.py](gammaspec/benchmark.py) |
+| 10 | [docs/cli.md](docs/cli.md) | Command-line reference (every command, all steps) | [cli.py](gammaspec/cli.py), [__main__.py](gammaspec/__main__.py) |
+| 11 | [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths | all; built by [docs/build_walkthrough.py](docs/build_walkthrough.py) |
+| 12 | [docs/development.md](docs/development.md) | Environment setup, testing, conventions | [tests/](tests/), [pyproject.toml](pyproject.toml) |
+| 13 | [docs/adr/](docs/adr/) | Architecture Decision Records: why things are the way they are (0001–0010, in step order) | — |
+| 14 | [CHANGELOG.md](CHANGELOG.md) | Release history | — |
 
 ## Results at a glance
 
