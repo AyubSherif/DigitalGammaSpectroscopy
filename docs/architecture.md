@@ -80,6 +80,8 @@ process a live stream, not just stored files.
 | `gammaspec/benchmark.py` | Benchmark chains on the same captures: naive `find_peaks`, emulated analog CR-RC⁴ chain (BLR, peak-hold, PUR, dead time, live-time clock), gammaspec; common metrics |
 | `gammaspec/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |
 | `gammaspec/plotting.py` | Shared figure style (validated colour palette, recessive axes) |
+| `gammaspec/config.py` | Run file: `RunConfig` (input, template, pipeline, spectrum, benchmark), TOML/JSON load and save, strict validation, stage-combination checks |
+| `gammaspec/runner.py` | `run(RunConfig)`: input → template → events → spectrum → benchmark, reusing outputs whose inputs and settings are unchanged |
 | `gammaspec/cli.py`, `__main__.py` | Command-line entry point: `python -m gammaspec …` |
 | `tests/` | Unit tests (synthetic captures) and real-data checks that are skipped when the data is absent |
 

@@ -12,7 +12,8 @@ separate background run.
 > pre-processing, detection, pile-up resolution, calibration and background
 > subtraction, run on the full 3-hour dataset (6.4 M events in 19 min, 75× smaller
 > than the raw text), and benchmarked against a naive peak count and an emulated analog
-> chain. Next: user-selectable stages, streaming.
+> chain. Every stage is selectable from a run file (`gammaspec run`). Next: streaming and
+> simulated input, then a UI.
 > See [Roadmap](#roadmap).
 
 ## Why
@@ -35,9 +36,9 @@ raw ASCII captures
   → background subtraction       (done)
 ```
 
-Each processing stage will be optional and configurable, so users can switch
-individual corrections on or off (see
-[ADR-0003](docs/adr/0003-modular-optional-stages.md)).
+Each processing stage is optional and configurable from a run file, so users can switch
+individual corrections on or off without code (see [docs/configuration.md](docs/configuration.md)
+and [ADR-0003](docs/adr/0003-modular-optional-stages.md)).
 
 ## Installation
 
@@ -52,6 +53,18 @@ pip install -e ".[dev]"
 ```
 
 ## Quick start
+
+The whole chain, configured by a run file:
+
+```bash
+gammaspec config init my_run.toml        # every setting, at its default, commented
+# edit: [input] kind = "raw", source = "ADC_raw_output", background = "ADC_raw_output_background"
+gammaspec config check my_run.toml       # validate
+gammaspec run my_run.toml                # convert -> template -> events -> spectrum (-> benchmark)
+gammaspec run examples/run_2021_raw.toml # or a ready-made example
+```
+
+Or step by step:
 
 ```bash
 # List the captures in a directory in time order; report gaps and live time
@@ -72,7 +85,7 @@ with CaptureStore("data/source_first100.h5") as store:
 
 ## Documentation
 
-In reading order: each document with the code it describes. Steps 2–9 follow the
+In reading order: each document with the code it describes. Steps 2–10 follow the
 data through the pipeline, so they can be reviewed one by one, side by side with
 their modules.
 
@@ -87,11 +100,12 @@ their modules.
 | 7 | [docs/pileup-solver.md](docs/pileup-solver.md) | Step 6: the pile-up solver in the pipeline: method, tuning, results | [solver.py](gammaspec/solver.py), [pipeline.py](gammaspec/pipeline.py) (`_solve_clusters`, `spectrum_report`) |
 | 8 | [docs/spectrum.md](docs/spectrum.md) | Step 7: energy calibration, gain matching, background subtraction; first-100 and full-run results | [calibration.py](gammaspec/calibration.py), [analysis.py](gammaspec/analysis.py), [spectrum.py](gammaspec/spectrum.py) |
 | 9 | [docs/benchmark.md](docs/benchmark.md) | Step 8: gammaspec vs naive `find_peaks` vs an emulated analog chain vs typical analog NaI(Tl) systems | [benchmark.py](gammaspec/benchmark.py) |
-| 10 | [docs/cli.md](docs/cli.md) | Command-line reference (every command, all steps) | [cli.py](gammaspec/cli.py), [__main__.py](gammaspec/__main__.py) |
-| 11 | [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths | all; built by [docs/build_walkthrough.py](docs/build_walkthrough.py) |
-| 12 | [docs/development.md](docs/development.md) | Environment setup, testing, conventions | [tests/](tests/), [pyproject.toml](pyproject.toml) |
-| 13 | [docs/adr/](docs/adr/) | Architecture Decision Records: why things are the way they are (0001–0010, in step order) | — |
-| 14 | [CHANGELOG.md](CHANGELOG.md) | Release history | — |
+| 10 | [docs/configuration.md](docs/configuration.md) | Step 9: the run file: input, stage switches, every parameter, validation, reruns | [config.py](gammaspec/config.py), [runner.py](gammaspec/runner.py), [examples/](examples/) |
+| 11 | [docs/cli.md](docs/cli.md) | Command-line reference (every command, all steps) | [cli.py](gammaspec/cli.py), [__main__.py](gammaspec/__main__.py) |
+| 12 | [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths | all; built by [docs/build_walkthrough.py](docs/build_walkthrough.py) |
+| 13 | [docs/development.md](docs/development.md) | Environment setup, testing, conventions | [tests/](tests/), [pyproject.toml](pyproject.toml) |
+| 14 | [docs/adr/](docs/adr/) | Architecture Decision Records: why things are the way they are (0001–0011, in step order) | — |
+| 15 | [CHANGELOG.md](CHANGELOG.md) | Release history | — |
 
 ## Results at a glance
 
@@ -119,5 +133,6 @@ PMT.
 6. ✅ Pile-up solver: weighted least squares with sub-sample timing and a search for hidden pulses ([results](docs/pileup-solver.md))
 7. ✅ Energy calibration, gain matching and background subtraction ([results](docs/spectrum.md)); full 3-hour run processed
 8. ✅ Benchmark: naive `find_peaks` count and an emulated preamp + shaping amp + MCA chain on the same data, plus typical published analog NaI(Tl) values ([results](docs/benchmark.md))
-9. ⬜ User-selectable stages (pipeline configuration)
-10. ⬜ Streaming input and live spectrum
+9. ✅ User-selectable stages: one run file for input, stages and parameters; `gammaspec run` ([docs](docs/configuration.md))
+10. ⬜ Streaming input (continuous, state across chunks), a signal simulator, live spectrum
+11. ⬜ UI (edits the run file; input: raw / store / stream / simulation) and packaging

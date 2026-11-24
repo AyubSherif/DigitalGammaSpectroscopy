@@ -27,13 +27,13 @@ from .signal import DEFAULT_POLARITY, find_pulses, noise_sigma, pulse_free_mask,
 
 @dataclass
 class PreprocessConfig:
-    polarity: int = DEFAULT_POLARITY
-    line_removal: bool = True
-    pole_zero: bool = True
-    baseline_tracker: bool = True
+    polarity: int = DEFAULT_POLARITY     # -1: pulses are negative-going (flipped to positive); 1: positive
+    line_removal: bool = True            # stage: remove narrow interference lines (sinusoids)
+    pole_zero: bool = True               # stage: pole-zero correction (removes the undershoot); needs baseline_tracker
+    baseline_tracker: bool = True        # stage: subtract the slow baseline (moving average of pulse-free samples)
     trigger_threshold: float = 5.0       # for the pulse masks used by the stages
-    line_mask_pre: int = 20
-    line_mask_post: int = 60
+    line_mask_pre: int = 20              # line fit: samples excluded before each pulse ...
+    line_mask_post: int = 60             # ... and after it
     warmup_samples: int = 1500           # start of each capture: earlier pulses' tails are not corrected
     lines: LineRemovalConfig = field(default_factory=LineRemovalConfig)
     tracker: TrackerConfig = field(default_factory=TrackerConfig)

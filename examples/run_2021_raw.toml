@@ -1,0 +1,19 @@
+# The whole chain on the 2021 data, starting from the raw ASCII captures.
+#   gammaspec config check examples/run_2021_raw.toml
+#   gammaspec run examples/run_2021_raw.toml
+# Every setting not given here keeps its default (gammaspec config init shows them all).
+
+output = "data/runs/2021_raw"
+
+[input]
+kind = "raw"
+source = "ADC_raw_output"
+background = "ADC_raw_output_background"
+limit = 100            # first 100 captures of each run; 0 = all (the full run takes ~25 min)
+
+[template]
+build_from = "background"   # build the pulse template from the background run
+
+[benchmark]
+enabled = true         # also compare with a naive find_peaks count and an emulated analog chain
+captures = 100

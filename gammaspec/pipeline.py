@@ -39,8 +39,8 @@ class EventConfig:
     fit_pre: int = 10                 # template fit window: samples before the peak ...
     fit_post: int = 40                # ... and after it
     snippets: str = "pileup"          # store clean waveforms of: "none" | "pileup" | "all" clusters
-    snippet_pre: int = 20
-    snippet_post: int = 80
+    snippet_pre: int = 20             # snippet: samples kept before the cluster ...
+    snippet_post: int = 80            # ... and after it
     large_v: float = 1.5              # above this: FLAG_LARGE (cosmic muons; shape not verified)
     large_shadow: int = 200           # events this many samples after a large pulse: FLAG_AFTER_LARGE
     bad_fit_sigma: float = 4.0        # bad fit if rms > bad_fit_sigma * noise + bad_fit_frac * amplitude

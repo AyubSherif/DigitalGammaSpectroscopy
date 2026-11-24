@@ -1,0 +1,23 @@
+# Start from HDF5 stores that were already converted (gammaspec convert), with an existing
+# template, and switch some stages off to see what they contribute.
+#   gammaspec run examples/run_from_stores.toml
+#   gammaspec run examples/run_from_stores.toml --set pipeline.solver.enabled=true   # one change on the command line
+
+output = "data/runs/no_line_removal"
+
+[input]
+kind = "store"
+source = "data/source_first100.h5"
+background = "data/background.h5"
+
+[template]
+path = "data/characterization/background/template.h5"
+
+[pipeline.preprocess]
+line_removal = false    # stage off: keep the interference lines
+
+[pipeline.detect]
+threshold = 6.0         # sigma of the filter output (default 5.5)
+
+[spectrum]
+bin_kev = 2.0

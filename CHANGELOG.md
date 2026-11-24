@@ -7,6 +7,12 @@ the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Step 9, run configuration: `gammaspec.config` (one TOML/JSON run file mirroring the config
+  dataclasses; strict validation with suggestions; stage-combination checks; commented
+  defaults from the code) and `gammaspec.runner` (input → template → events → spectrum →
+  benchmark, reusing unchanged outputs via stamps). CLI `run`, `config init|check|show`, and
+  `process --config/--set` (the old flags override the file). `examples/*.toml`,
+  `docs/configuration.md`, ADR-0011; ADR-0003 implemented.
 - `gammaspec.benchmark` and CLI command `benchmark`: the pipeline vs a naive
   `scipy.signal.find_peaks` count vs an emulated analog chain (CR-RC⁴ shaping amplifier with
   pole-zero, baseline restorer, peak-hold ADC, pile-up rejector, dead time, live-time clock)

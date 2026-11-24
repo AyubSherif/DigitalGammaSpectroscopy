@@ -25,7 +25,7 @@ from .template import (PulseFit, PulseTemplate, build_template, extract_windows,
 
 @dataclass
 class CharacterizeConfig:
-    polarity: int = DEFAULT_POLARITY
+    polarity: int = DEFAULT_POLARITY     # -1: pulses are negative-going; 1: positive
     trigger_threshold: float = 5.0       # coarse trigger, in sigma of the edge signal
     # template pulses
     template_pre: int = 40               # samples kept before the peak
@@ -36,12 +36,12 @@ class CharacterizeConfig:
     max_amplitude_v: float = 4.0         # ... and stay below this (avoid saturation / non-linearity)
     resolution: int = 16                 # template grid points per sample
     # spectrum pulses (short isolation: only the main lobe must be clean)
-    spectrum_isolation_pre: int = 50
-    spectrum_isolation_post: int = 60
+    spectrum_isolation_pre: int = 50     # preliminary spectrum: pulse-free samples needed before ...
+    spectrum_isolation_post: int = 60    # ... and after a pulse
     # noise
-    noise_window: int = 512
-    noise_exclude_pre: int = 20
-    noise_exclude_post: int = 1500
+    noise_window: int = 512              # noise spectrum: samples per pulse-free window
+    noise_exclude_pre: int = 20          # noise windows keep this far before a pulse ...
+    noise_exclude_post: int = 1500       # ... and this far after it
     max_noise_windows_per_capture: int = 100
     amplitude_bin_edges: tuple = (0.03, 0.1, 0.2, 0.3, 0.45, 0.7, 1.2, 4.0)  # volts, shape-vs-amplitude check
     limit: int | None = None             # only the first N captures

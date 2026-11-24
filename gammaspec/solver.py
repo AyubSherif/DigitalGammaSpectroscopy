@@ -32,15 +32,15 @@ from .template import PulseTemplate
 
 @dataclass
 class SolverConfig:
-    enabled: bool = True
+    enabled: bool = True               # stage: resolve pile-up clusters (needs pole_zero + baseline_tracker)
     model_error: float = 0.0035        # template mismatch, fraction of amplitude (measured: 0.35 %)
     iterations: int = 6                # max Gauss-Newton iterations (stops earlier on convergence)
     tolerance: float = 0.005           # stop when every time moved less than this (samples)
     max_shift: float = 1.25            # each time stays within +-max_shift of its start value
-    residual_search: bool = True
+    residual_search: bool = True       # search the fit residual for hidden pulses
     search_threshold: float = 8.0      # z (sigma) needed to add a pulse (tuned: 0.3 % false additions)
     min_separation: float = 1.0        # added pulses: at least this far (samples) from existing ones
-    max_added: int = 2
+    max_added: int = 2                 # at most this many pulses added per cluster
     max_length: int = 1024             # longer clusters are fitted without whitening
     acov_lags: int = 512               # noise autocovariance lags used for whitening
 

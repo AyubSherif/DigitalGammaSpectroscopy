@@ -111,18 +111,33 @@ def _cmd_evaluate_restoration(args) -> int:
 def _cmd_process(args) -> int:
     from pathlib import Path
 
-    from .detect import DetectConfig
-    from .pipeline import EventConfig, PipelineConfig, plot_event_spectrum, run, summarize
-    from .preprocess import PreprocessConfig
-    from .solver import SolverConfig
+    from . import config as C
+    from .pipeline import PipelineConfig, plot_event_spectrum, run, summarize
 
-    cfg = PipelineConfig(
-        preprocess=PreprocessConfig(line_removal=not args.no_line_removal, pole_zero=not args.no_pole_zero,
-                                    baseline_tracker=not args.no_tracker),
-        detect=DetectConfig(method=args.method, threshold=args.threshold),
-        events=EventConfig(snippets=args.snippets),
-        solver=SolverConfig(enabled=not args.no_pileup_solver, residual_search=not args.no_residual_search),
-    )
+    d = C.read_dict(args.config) if args.config else {}
+    run_keys = {f.name for f in C.dataclasses.fields(C.RunConfig)} | {"schema_version"}
+    if "pipeline" in d:                                 # a run file: use its [pipeline] tables
+        d = d["pipeline"]
+    elif set(d) & (run_keys - {"pipeline"}):            # a run file without pipeline settings
+        d = {}
+    for s in args.set or []:
+        C.set_key(d, s[len("pipeline."):] if s.startswith("pipeline.") else s)
+    # the flags below are shortcuts: they override the file when given
+    flags = {"preprocess.line_removal": False if args.no_line_removal else None,
+             "preprocess.pole_zero": False if args.no_pole_zero else None,
+             "preprocess.baseline_tracker": False if args.no_tracker else None,
+             "detect.method": args.method, "detect.threshold": args.threshold, "events.snippets": args.snippets,
+             "solver.enabled": False if args.no_pileup_solver else None,
+             "solver.residual_search": False if args.no_residual_search else None}
+    for k, v in flags.items():
+        if v is not None:
+            a, b = k.split(".")
+            d.setdefault(a, {})[b] = v
+    try:
+        cfg = C.from_dict(d, PipelineConfig)
+    except C.ConfigError as exc:
+        print(exc)
+        return 2
     r = run(args.store, args.template, args.out, cfg, limit=args.limit, overwrite=args.overwrite)
     s = summarize(args.out)
     png = Path(args.out).with_suffix(".png")
@@ -230,6 +245,47 @@ def _cmd_benchmark(args) -> int:
     return 0
 
 
+def _cmd_run(args) -> int:
+    from . import config as C
+    from .runner import StepError, run
+
+    try:
+        cfg = C.load(args.config, args.set)
+        run(cfg)
+    except (C.ConfigError, StepError) as exc:
+        print(exc)
+        return 2
+    return 0
+
+
+def _cmd_config(args) -> int:
+    from pathlib import Path
+
+    from . import config as C
+
+    try:
+        if args.action == "init":
+            if Path(args.path).exists() and not args.force:
+                print(f"{args.path} exists (use --force to replace it)")
+                return 1
+            cfg = C.load(None, args.set)
+            print(f"wrote {C.save(cfg, args.path)}")
+        elif args.action == "check":
+            cfg = C.load(args.path, args.set)
+            warns = C.check(cfg)
+            if not args.quiet:
+                print(C.dumps(cfg, comments=False))
+            for w in warns:
+                print(f"warning: {w}")
+            print(f"{args.path}: OK" + (f" ({len(warns)} warning(s))" if warns else ""))
+        else:
+            print(C.dumps(C.pipeline_from_event_file(args.events)))
+    except C.ConfigError as exc:
+        print(exc)
+        return 2
+    return 0
+
+
 def _cmd_spectrum(args) -> int:
     from .analysis import analyze
 
@@ -305,17 +361,40 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--no-line-removal", action="store_true", help="skip interference line removal")
     pp.add_argument("--no-pole-zero", action="store_true", help="skip pole-zero correction")
     pp.add_argument("--no-tracker", action="store_true", help="skip the baseline tracker")
-    pp.add_argument("--method", default="optimal", choices=["optimal", "matched", "sharpened", "edge"],
-                    help="detection filter (default optimal)")
-    pp.add_argument("--threshold", type=float, default=5.5, help="detection threshold in filter sigma")
+    pp.add_argument("--method", default=None, choices=["optimal", "matched", "sharpened", "edge"],
+                    help="detection filter (default: from the config, optimal)")
+    pp.add_argument("--threshold", type=float, default=None, help="detection threshold in filter sigma (default 5.5)")
     pp.add_argument("--no-pileup-solver", action="store_true", help="skip the pile-up solver")
     pp.add_argument("--no-residual-search", action="store_true",
                     help="pile-up solver without the search for hidden pulses")
-    pp.add_argument("--snippets", default="pileup", choices=["none", "pileup", "all"],
+    pp.add_argument("--snippets", default=None, choices=["none", "pileup", "all"],
                     help="which clusters get waveform snippets (default pileup)")
     pp.add_argument("--limit", type=int, help="only the first N captures")
     pp.add_argument("--overwrite", action="store_true")
+    pp.add_argument("--config", help="run file (.toml/.json); its [pipeline] tables are used")
+    pp.add_argument("--set", action="append", metavar="KEY=VALUE",
+                    help="override one setting, e.g. --set detect.threshold=6 (repeatable)")
     pp.set_defaults(func=_cmd_process)
+
+    pr = sub.add_parser("run", help="run the configured chain: input -> template -> events -> spectrum -> benchmark")
+    pr.add_argument("config", help="run file (.toml or .json), e.g. from 'gammaspec config init'")
+    pr.add_argument("--set", action="append", metavar="KEY=VALUE",
+                    help="override one setting, e.g. --set pipeline.detect.threshold=6 (repeatable)")
+    pr.set_defaults(func=_cmd_run)
+
+    pg = sub.add_parser("config", help="write, check or show configurations")
+    gs = pg.add_subparsers(dest="action", required=True)
+    gi = gs.add_parser("init", help="write a run file with every setting at its default, commented")
+    gi.add_argument("path", help="output .toml (or .json)")
+    gi.add_argument("--set", action="append", metavar="KEY=VALUE", help="start from these values")
+    gi.add_argument("--force", action="store_true", help="replace an existing file")
+    gc = gs.add_parser("check", help="validate a run file and print the effective configuration")
+    gc.add_argument("path")
+    gc.add_argument("--set", action="append", metavar="KEY=VALUE")
+    gc.add_argument("--quiet", action="store_true", help="only errors and warnings")
+    gw = gs.add_parser("show", help="print the pipeline configuration stored in an event file")
+    gw.add_argument("events", help="event file (.h5)")
+    pg.set_defaults(func=_cmd_config)
 
     pd = sub.add_parser("evaluate-detection", help="compare detection methods with injected pulses")
     pd.add_argument("store", help="HDF5 capture store (its clean signal provides the noise)")

@@ -42,6 +42,7 @@ The order follows the data:
 | E | 5–6. Pile-up resolution | TM, HYPER and least-squares fits on a real cluster; the pile-up solver in the pipeline |
 | G | 7. Calibration and background subtraction | keV axis for each run, gain matching, net spectrum |
 | H | Benchmark | the same pulses through a naive `find_peaks` count, an emulated analog chain and gammaspec |
+| I | 9. Configuration | one run file selects input, stages and parameters; the runner executes it |
 | F | Evaluation tools | how the numbers in the docs were measured |
 
 Conventions: time is in **samples** (1 sample = 1/1.8 MHz = 0.556 µs) unless stated;
@@ -1314,6 +1315,73 @@ for ch in (naive, ana, pipe):
     m_ = benchmark.metrics(ch)
     print(f"{m_['name']:42s} FWHM {m_['fwhm_pct'][0]:.2f}/{m_['fwhm_pct'][1]:.2f} %  valley/peak {m_['valley_to_peak']:.3f}  threshold {m_['low_energy_threshold_kev']:.0f} keV")
 print("(5 captures only: widths and valleys fluctuate by up to ~1 % here; docs/benchmark.md uses 100)")
+""")
+
+# =============================================================================================
+md(r"""
+---
+# Part I: Configuration and the runner (step 9)
+
+Everything above was called from code. A **run file** does the same without code
+(`docs/configuration.md`).
+
+## I1. `config.from_dict(d)` / `config.load(path, overrides)`
+A nested dict (from TOML or JSON) → the config dataclasses, recursively. Missing keys keep
+their defaults. Each value is checked against its field's type annotation; unknown keys,
+wrong types, invalid choices (`CHOICES`) and out-of-range numbers (`POSITIVE`, ≥ 0) are
+collected and raised together as a `ConfigError`.
+""")
+code(r"""
+from gammaspec import config as C
+cfg = C.from_dict({"input": {"kind": "store", "source": str(SRC_STORE)}, "pipeline": {"detect": {"threshold": 6}}})
+print(type(cfg.pipeline.detect).__name__, "threshold =", cfg.pipeline.detect.threshold, "| method (default) =", cfg.pipeline.detect.method)
+try:
+    C.from_dict({"input": {"knd": "raw"}, "pipeline": {"detect": {"method": "fast", "threshold": -2}}})
+except C.ConfigError as e:
+    print(e)
+""")
+
+md(r"""
+## I2. `config.set_key(d, "a.b.c=value")` and `config.dumps(cfg)`
+`set_key` applies one `--set` override; the value is parsed as TOML (`6` → int, `true` →
+bool, `"x"` → str). `dumps` writes TOML, one table per dataclass. The comment of each field
+comes from its comment in the source code (`_comments` reads the class source).
+""")
+code(r"""
+d = {}
+for s_ in ["pipeline.preprocess.line_removal=false", "pipeline.detect.method=matched", "input.limit=2"]:
+    C.set_key(d, s_)
+print(d)
+print("\n".join(C.dumps(C.from_dict(d)).splitlines()[38:48]))
+""")
+
+md(r"""
+## I3. `config.check(cfg)`
+Checks that need more than one setting: required inputs and existing paths are errors,
+combinations of stages that work badly are warnings.
+""")
+code(r"""
+c_ = C.load(None, [f"input.source='{SRC_STORE.as_posix()}'", f"template.path='{TEMPLATE.as_posix()}'",
+                   "pipeline.preprocess.baseline_tracker=false"])
+for w_ in C.check(c_):
+    print("warning:", w_)
+""")
+
+md(r"""
+## I4. `runner.run(cfg)`
+Input → template → events → spectrum → benchmark, each when selected. Every output gets a
+stamp (`<file>.stamp.json`: its inputs and settings). A rerun reuses an output whose stamp
+is unchanged, so after changing one setting only the affected steps run.
+""")
+code(r"""
+from gammaspec import runner
+sets_ = [f"output='{(TMP / 'run').as_posix()}'", f"input.source='{SRC_STORE.as_posix()}'", f"template.path='{TEMPLATE.as_posix()}'",
+         "input.limit=2", "spectrum.enabled=false", "workers=1"]
+r_ = runner.run(C.load(None, sets_), verbose=False)
+print({k: v["seconds"] for k, v in r_["steps"].items()})
+r_ = runner.run(C.load(None, sets_), verbose=True)                                   # unchanged: reused
+r_ = runner.run(C.load(None, sets_ + ["pipeline.detect.threshold=7"]), verbose=False)  # only processing reruns
+print("stored in the event file:", C.pipeline_from_event_file(r_["events"]["source"]).detect.threshold)
 """)
 
 # =============================================================================================

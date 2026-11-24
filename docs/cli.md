@@ -115,6 +115,32 @@ clean pulses. Writes `restoration_summary.json` and the plots `waveform_example.
 `line_removal_psd.png`, `pole_zero_template.png`, `baseline_and_tail.png` and
 `spectrum_comparison.png`.
 
+## `run`
+
+Run the chain described by a run file ([configuration.md](configuration.md)): input
+(convert raw captures, or use stores), template, events for the source and background runs,
+spectrum and, if enabled, the benchmark.
+
+```bash
+gammaspec run RUN.toml [--set KEY=VALUE ...]
+```
+
+| Option | Description |
+|---|---|
+| `--set KEY=VALUE` | override one setting, e.g. `--set pipeline.detect.threshold=6`, `--set input.limit=20` (repeatable; value in TOML syntax) |
+
+Writes `config.toml` (effective configuration), `run_summary.json` and the step outputs to
+the run's `output` folder. Outputs whose inputs and settings did not change are reused.
+Exit code 2 on an invalid configuration or a step that cannot run.
+
+## `config`
+
+```bash
+gammaspec config init RUN.toml [--set KEY=VALUE ...] [--force]   # write all settings (defaults), commented
+gammaspec config check RUN.toml [--set KEY=VALUE ...] [--quiet]  # validate; print warnings + effective config
+gammaspec config show EVENTS.h5                                  # pipeline settings stored in an event file
+```
+
 ## `process`
 
 Run the pipeline: capture store → pre-processing → detection → event file
@@ -125,6 +151,7 @@ next to the output (`OUT.png`).
 gammaspec process STORE.h5 OUT.h5 --template TEMPLATE.h5 [--no-line-removal] [--no-pole-zero]
                   [--no-tracker] [--method optimal|matched|sharpened|edge] [--threshold K]
                   [--snippets pileup|all|none] [--limit N] [--overwrite]
+                  [--config RUN.toml] [--set KEY=VALUE ...]
 ```
 
 | Option | Default | Description |
@@ -137,6 +164,11 @@ gammaspec process STORE.h5 OUT.h5 --template TEMPLATE.h5 [--no-line-removal] [--
 | `--no-residual-search` | off | resolve clusters but do not search for hidden pulses |
 | `--snippets` | `pileup` | store clean waveforms of pile-up clusters, of all clusters, or none |
 | `--limit N` | all | only the first *N* captures |
+| `--config FILE` | none | run file (or pipeline-only file); its `[pipeline]` tables are used ([configuration.md](configuration.md)) |
+| `--set KEY=VALUE` | none | override one pipeline setting, e.g. `--set detect.threshold=6` (repeatable) |
+
+The flags above are shortcuts that override `--config` / `--set` when given; defaults come from
+the configuration.
 
 Prints the event count, processing speed (× real time), rate, flag fractions and the size
 reduction.

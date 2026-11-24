@@ -39,7 +39,7 @@ METHODS = ("optimal", "matched", "sharpened", "edge")
 
 @dataclass
 class DetectConfig:
-    method: str = "optimal"
+    method: str = "optimal"          # "optimal" (noise-whitened) | "matched" | "sharpened" | "edge"
     threshold: float = 5.5            # in sigma of the filter output
     pre: int = 6                      # filter kernel: samples before the peak ...
     post: int = 60                    # ... and after it
