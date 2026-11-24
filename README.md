@@ -21,9 +21,9 @@
 
 > [!IMPORTANT]
 > **📌 Origin of this code.** The core of this project (the **pile-up correction**, **baseline
-> restoration**, **template matching** and **interference cleaning**) began as software add-ons
-> I developed for a contract with **Serva Energy** in 2021. I then asked **Claude** (Anthropic's
-> AI assistant) to package that code into the app in this repository.
+> restoration**, **template matching**, **background subtraction**, and **interference cleaning**)
+> began as software add-ons I developed for a contract in 2021. I then asked **Claude** to package
+> that code into the app in this repository.
 
 > [!WARNING]
 > **🚧 Not fully tested.** The app is still experimental. The processing chain has been run on
