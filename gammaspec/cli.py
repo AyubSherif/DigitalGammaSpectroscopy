@@ -108,6 +108,41 @@ def _cmd_evaluate_restoration(args) -> int:
     return 0
 
 
+def _cmd_process(args) -> int:
+    from pathlib import Path
+
+    from .detect import DetectConfig
+    from .pipeline import EventConfig, PipelineConfig, plot_event_spectrum, run, summarize
+    from .preprocess import PreprocessConfig
+
+    cfg = PipelineConfig(
+        preprocess=PreprocessConfig(line_removal=not args.no_line_removal, pole_zero=not args.no_pole_zero,
+                                    baseline_tracker=not args.no_tracker),
+        detect=DetectConfig(method=args.method, threshold=args.threshold),
+        events=EventConfig(snippets=args.snippets),
+    )
+    r = run(args.store, args.template, args.out, cfg, limit=args.limit, overwrite=args.overwrite)
+    s = summarize(args.out)
+    png = Path(args.out).with_suffix(".png")
+    plot_event_spectrum(args.out, png)
+    print(f"{r['events']} events from {r['captures']} captures in {r['elapsed_s']:.1f} s "
+          f"({r['samples_per_s'] / 1e6:.1f} MS/s, {r['samples_per_s'] / 1.8e6:.1f}x real time)")
+    print(f"rate {s['rate_cps']:.0f} /s | clean (isolated, fitted) {s['clean']} | snippets {s['snippets']} | "
+          f"filter noise {s['median_filter_sigma_mv']:.2f} mV, threshold {s['median_threshold_mv']:.2f} mV")
+    print("flags (fraction of valid events): " + ", ".join(
+        f"{k} {v:.3f}" for k, v in s["flag_fractions_of_valid"].items()))
+    print(f"event file {r['file_bytes'] / 1e6:.2f} MB vs {r['text_bytes'] / 1e6:.0f} MB of ASCII input "
+          f"({r['text_bytes'] / r['file_bytes']:.0f}x smaller); spectrum plot {png}")
+    return 0
+
+
+def _cmd_evaluate_detection(args) -> int:
+    from .detection_eval import evaluate
+
+    evaluate(args.store, args.template, args.out)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="gammaspec", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -152,6 +187,28 @@ def main(argv: list[str] | None = None) -> int:
     pe.add_argument("--n-peaks", type=int, default=2, help="spectral peaks to fit (2 for 60Co, 1 for 40K)")
     pe.add_argument("--limit", type=int, help="only the first N captures")
     pe.set_defaults(func=_cmd_evaluate_restoration)
+
+    pp = sub.add_parser("process", help="run the pipeline: capture store -> event list")
+    pp.add_argument("store", help="HDF5 capture store")
+    pp.add_argument("out", help="output event file (.h5); a spectrum plot is written next to it")
+    pp.add_argument("--template", required=True, help="template.h5 with a fitted model (from characterize)")
+    pp.add_argument("--no-line-removal", action="store_true", help="skip interference line removal")
+    pp.add_argument("--no-pole-zero", action="store_true", help="skip pole-zero correction")
+    pp.add_argument("--no-tracker", action="store_true", help="skip the baseline tracker")
+    pp.add_argument("--method", default="optimal", choices=["optimal", "matched", "sharpened", "edge"],
+                    help="detection filter (default optimal)")
+    pp.add_argument("--threshold", type=float, default=5.5, help="detection threshold in filter sigma")
+    pp.add_argument("--snippets", default="pileup", choices=["none", "pileup", "all"],
+                    help="which clusters get waveform snippets (default pileup)")
+    pp.add_argument("--limit", type=int, help="only the first N captures")
+    pp.add_argument("--overwrite", action="store_true")
+    pp.set_defaults(func=_cmd_process)
+
+    pd = sub.add_parser("evaluate-detection", help="compare detection methods with injected pulses")
+    pd.add_argument("store", help="HDF5 capture store (its clean signal provides the noise)")
+    pd.add_argument("template", help="template.h5 with a fitted model")
+    pd.add_argument("out", help="output directory")
+    pd.set_defaults(func=_cmd_evaluate_detection)
 
     args = p.parse_args(argv)
     if getattr(args, "lsb", None) is None and hasattr(args, "lsb"):

@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy>=2.0", "scipy>=1.13", "h5py>=3.10", "numba>=0.60", "matplotlib>=3.8"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ipykernel>=6", "nbformat>=5", "nbclient>=0.10"]
 
 [project.scripts]
 gammaspec = "gammaspec.cli:main"

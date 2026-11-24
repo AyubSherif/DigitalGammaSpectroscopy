@@ -33,7 +33,7 @@ Properties measured from the data, which drive the design (details and figures i
  raw captures ─►│ ingestion  │──►│ baseline │──►│ detection │──►│ pile-up  │──►│ spectrum │──►│ background │
                 │  (store)   │   │ restore  │   │ (events)  │   │ & energy │   │ & calib. │   │ subtraction│
                 └────────────┘   └──────────┘   └───────────┘   └──────────┘   └──────────┘   └────────────┘
-                   done             done           planned         planned        planned        planned
+                   done             done            done           planned        planned        planned
 
  baseline restore = [line removal] → [pole-zero] → [baseline tracker], see baseline-restoration.md
 ```
@@ -67,6 +67,10 @@ process a live stream, not just stored files.
 | `gammaspec/interference.py` | `LineRemoval` stage: line detection in the masked spectrum, block-wise sinusoid subtraction on pulse-free samples |
 | `gammaspec/baseline.py` | Pole-zero filter design from the pulse model, `PoleZero` stage (streamable IIR), `filter_template`, `BaselineTracker` stage |
 | `gammaspec/preprocess.py` | `PreprocessConfig` / `Preprocessor`: the optional chain polarity+offset → lines → pole-zero → tracker |
+| `gammaspec/detect.py` | `Detector`: per-capture optimal filter (noise-whitened matched filter), successive cancellation, local thresholds; matched / sharpened / edge alternatives |
+| `gammaspec/events.py` | Event-file format: `EventWriter` (append per capture), `EventFile` (read), flag bits |
+| `gammaspec/pipeline.py` | `Pipeline` / `run`: store → pre-processing → detection → clusters, flags, template fits, snippets → event file (parallel over captures) |
+| `gammaspec/detection_eval.py` | Injection tests of the detection methods in real and phase-scrambled noise |
 | `gammaspec/spectrum.py` | Gaussian peak fits on a linear background (resolution, centroids) |
 | `gammaspec/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |
 | `gammaspec/plotting.py` | Shared figure style (validated colour palette, recessive axes) |

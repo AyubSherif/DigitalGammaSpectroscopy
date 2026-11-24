@@ -45,6 +45,17 @@ python -m pytest -k store   # a subset
 * Every new processing stage must come with (a) a test on synthetic data with a
   known answer and (b) a diagnostic plot or summary for the real data.
 
+## Walkthrough notebook
+
+`docs/walkthrough.ipynb` steps through every function in call order on the real data.
+It is generated and executed by `docs/build_walkthrough.py` (needs the local `data/`
+folder and the `gammaspec` Jupyter kernel: `python -m ipykernel install --user --name gammaspec`).
+Rebuild it after changing a function it shows:
+
+```bash
+python docs/build_walkthrough.py
+```
+
 ## Conventions
 
 * **Units:** volts and seconds in public APIs; ADC codes (int32) for storage.

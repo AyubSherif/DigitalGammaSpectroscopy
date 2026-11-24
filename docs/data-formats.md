@@ -72,3 +72,38 @@ Written by `gammaspec index --csv`. One row per capture, in time order.
 | `t_rel_s` | seconds since the first capture |
 | `n_samples`, `dt_s` | from the header |
 | `path` | file path |
+
+## Event file (`*.h5`)
+
+Written by `gammaspec process` (`events.EventWriter`); read with `events.EventFile`.
+Every column is a separate compressed, resizable dataset.
+
+`/events/<column>`, one row per detected pulse:
+
+| Column | Type | Description |
+|---|---|---|
+| `capture` | u4 | capture number (row in the store) |
+| `index` | i8 | peak sample within the capture |
+| `time_s` | f8 | capture time + (index + shift) × Δt |
+| `amplitude` | f4 | template-fit amplitude in volts (isolated pulses; NaN otherwise) |
+| `filter_amplitude` | f4 | detection-filter amplitude estimate (all pulses) |
+| `shift` | f4 | sub-sample peak position relative to `index` |
+| `fit_rms` | f4 | rms residual of the template fit |
+| `flags` | u2 | bit mask, see below; 0 = clean |
+| `cluster`, `cluster_size` | i8, u2 | pulses closer than 60 samples share a cluster |
+| `gap_prev`, `gap_next` | i4 | samples to the neighbouring pulses (−1: none) |
+
+Flags: 1 `PILEUP` (cluster size > 1), 2 `WARMUP` (first 1500 samples of a capture),
+4 `EDGE` (no room for the fit window), 8 `BAD_FIT` (isolated but poorly fitted),
+16 `LARGE` (> 1.5 V), 32 `AFTER_LARGE` (within 200 samples after a large pulse).
+
+`/captures/<column>`, one row per capture: `capture`, `time_s`, `live_time_s` (valid
+region), `offset_v`, `sigma_in_v`, `sigma_out_v` (noise before / after pre-processing),
+`filter_sigma_v`, `threshold_v`, `n_events`, `n_lines`.
+
+`/snippets/`: `cluster`, `capture`, `start`, `offset`, `length` and `data` (flat float32):
+the clean waveform of each stored cluster, from 20 samples before its first pulse to 80
+after its last.
+
+Attributes: `config` (the full `PipelineConfig` as JSON), `template`, `source_store`,
+`lsb_volts`, `dt_s`, `fit_baseline`, `pole_zero` (filter coefficients), `gammaspec_version`.

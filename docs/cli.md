@@ -114,3 +114,38 @@ free and fixed baseline) and a comparison of pulses on an earlier pulse's tail a
 clean pulses. Writes `restoration_summary.json` and the plots `waveform_example.png`,
 `line_removal_psd.png`, `pole_zero_template.png`, `baseline_and_tail.png` and
 `spectrum_comparison.png`.
+
+## `process`
+
+Run the pipeline: capture store → pre-processing → detection → event file
+([format](data-formats.md#event-file-h5)). A spectrum plot of the clean events is written
+next to the output (`OUT.png`).
+
+```bash
+gammaspec process STORE.h5 OUT.h5 --template TEMPLATE.h5 [--no-line-removal] [--no-pole-zero]
+                  [--no-tracker] [--method optimal|matched|sharpened|edge] [--threshold K]
+                  [--snippets pileup|all|none] [--limit N] [--overwrite]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--template` | (required) | template with a fitted model (from `characterize`) |
+| `--no-line-removal`, `--no-pole-zero`, `--no-tracker` | all on | switch pre-processing stages off |
+| `--method` | `optimal` | detection filter ([detection.md](detection.md)) |
+| `--threshold K` | 5.5 | detection threshold, in noise sigma of the filter output |
+| `--snippets` | `pileup` | store clean waveforms of pile-up clusters (input for the pile-up solver), of all clusters, or none |
+| `--limit N` | all | only the first *N* captures |
+
+Prints the event count, processing speed (× real time), rate, flag fractions and the size
+reduction.
+
+## `evaluate-detection`
+
+Compare detection methods by injecting template pulses into real noise and into
+phase-scrambled noise (same spectrum, no pulses).
+
+```bash
+gammaspec evaluate-detection STORE.h5 TEMPLATE.h5 OUT_DIR
+```
+
+Writes `detection_summary.json`, `detection_efficiency.png` and `detection_pairs.png`.
