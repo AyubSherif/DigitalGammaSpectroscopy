@@ -1,14 +1,14 @@
 # Detector characterisation (2021 NaI(Tl) data)
 
-Results of `gammaspec characterize` on the first 100 captures (29.1 s of live time) of
+Results of `gamma-spectrometry characterize` on the first 100 captures (29.1 s of live time) of
 each run. The source run is ⁶⁰Co, 2021-08-26; the background run is 2021-08-31.
 These numbers set the parameters of the later processing stages.
 
 Reproduce:
 
 ```bash
-gammaspec characterize data/background.h5 data/characterization/background
-gammaspec characterize data/source_first100.h5 data/characterization/source \
+gamma-spectrometry characterize data/background.h5 data/characterization/background
+gamma-spectrometry characterize data/source_first100.h5 data/characterization/source \
     --template-post 300 --isolation-pre 300 --isolation-post 300 \
     --compare data/characterization/background/template.h5
 ```

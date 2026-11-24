@@ -1,4 +1,4 @@
-"""Run the whole chain from a run configuration (``gammaspec run run.toml``).
+"""Run the whole chain from a run configuration (``gamma-spectrometry run run.toml``).
 
 Steps, each selected by the configuration:
 
@@ -9,7 +9,7 @@ Steps, each selected by the configuration:
     3. process    -> event file, for the source and (if given) the background run: batch
                   (pipeline.run) for "raw" / "store", the stream processor otherwise
     4. spectrum   calibration, spectra, background subtraction   (spectrum.enabled)
-    5. benchmark  naive / analog / gammaspec comparison            (benchmark.enabled)
+    5. benchmark  naive / analog / Gamma Spectrometry App comparison            (benchmark.enabled)
     +  simulation the events are scored against the simulator's truth (simulation_check.json)
 
 Outputs go to ``output``:

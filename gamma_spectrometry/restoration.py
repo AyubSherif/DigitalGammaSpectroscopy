@@ -9,7 +9,7 @@ Metrics per configuration:
 * tail: average normalised waveform after isolated pulses (should return to 0);
 * spectrum: template-fit amplitudes, Gaussian fits of the main peaks (FWHM %).
 
-Run:  python -m gammaspec evaluate-restoration STORE TEMPLATE OUT_DIR
+Run:  python -m gamma_spectrometry evaluate-restoration STORE TEMPLATE OUT_DIR
 """
 
 from __future__ import annotations

@@ -8,8 +8,8 @@ each optional ([ADR-0003](adr/0003-modular-optional-stages.md)):
 raw volts ─► polarity + offset ─► [line removal] ─► [pole-zero] ─► [baseline tracker] ─► clean signal
 ```
 
-Code: `gammaspec/interference.py`, `gammaspec/baseline.py`, `gammaspec/preprocess.py`.
-Evaluation: `gammaspec evaluate-restoration` (`gammaspec/restoration.py`).
+Code: `gamma_spectrometry/interference.py`, `gamma_spectrometry/baseline.py`, `gamma_spectrometry/preprocess.py`.
+Evaluation: `gamma-spectrometry evaluate-restoration` (`gamma_spectrometry/restoration.py`).
 
 ## Why it is needed
 

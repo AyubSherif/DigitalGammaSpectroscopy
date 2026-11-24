@@ -102,7 +102,7 @@ class EventWriter:
                           compression="gzip", compression_opts=4, shuffle=True)
         for k, v in attrs.items():
             self._f.attrs[k] = json.dumps(v) if isinstance(v, (dict, list)) or v is None else v
-        self._f.attrs["gammaspec_version"] = __version__
+        self._f.attrs["app_version"] = __version__
 
     def append(self, events: np.ndarray, capture_row: np.ndarray,
                snippets: list[tuple[int, int, int, np.ndarray]] | None = None) -> None:

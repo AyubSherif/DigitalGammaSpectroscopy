@@ -1,9 +1,9 @@
 # Command-line reference
 
 ```bash
-python -m gammaspec <command> [options]
+python -m gamma_spectrometry <command> [options]
 # or, after `pip install -e .`:
-gammaspec <command> [options]
+gamma-spectrometry <command> [options]
 ```
 
 ## `index`
@@ -13,7 +13,7 @@ span, live time, gaps between captures, and how often the file numbers are out
 of time order.
 
 ```bash
-gammaspec index DIRECTORY [--pattern GLOB] [--csv OUT.csv]
+gamma-spectrometry index DIRECTORY [--pattern GLOB] [--csv OUT.csv]
 ```
 
 | Option | Default | Description |
@@ -29,7 +29,7 @@ Only the headers are read, so this is fast (about 2 s for 4,786 files).
 Convert capture files to a compressed HDF5 store ([format](data-formats.md#hdf5-capture-store-h5)).
 
 ```bash
-gammaspec convert DIRECTORY OUT.h5 [--limit N] [--workers W] [--lsb VOLTS | --estimate-lsb] [--overwrite]
+gamma-spectrometry convert DIRECTORY OUT.h5 [--limit N] [--workers W] [--lsb VOLTS | --estimate-lsb] [--overwrite]
 ```
 
 | Option | Default | Description |
@@ -64,7 +64,7 @@ Build the pulse template and characterise the noise, stability and raw spectrum 
 store. Results are described in [characterization.md](characterization.md).
 
 ```bash
-gammaspec characterize STORE.h5 OUT_DIR [--limit N] [--template-post S] [--isolation-pre S]
+gamma-spectrometry characterize STORE.h5 OUT_DIR [--limit N] [--template-post S] [--isolation-pre S]
                        [--isolation-post S] [--trigger-threshold K] [--min-amplitude-sigma K]
                        [--max-amplitude-v V] [--resolution R] [--compare TEMPLATE.h5]
 ```
@@ -98,7 +98,7 @@ baseline tracker) on real data. Every configuration measures the same pulses. Re
 are described in [baseline-restoration.md](baseline-restoration.md).
 
 ```bash
-gammaspec evaluate-restoration STORE.h5 TEMPLATE.h5 OUT_DIR [--n-peaks N] [--limit N]
+gamma-spectrometry evaluate-restoration STORE.h5 TEMPLATE.h5 OUT_DIR [--n-peaks N] [--limit N]
 ```
 
 | Option | Default | Description |
@@ -122,7 +122,7 @@ Run the chain described by a run file ([configuration.md](configuration.md)): in
 spectrum and, if enabled, the benchmark.
 
 ```bash
-gammaspec run RUN.toml [--set KEY=VALUE ...]
+gamma-spectrometry run RUN.toml [--set KEY=VALUE ...]
 ```
 
 | Option | Description |
@@ -136,9 +136,9 @@ Exit code 2 on an invalid configuration or a step that cannot run.
 ## `config`
 
 ```bash
-gammaspec config init RUN.toml [--set KEY=VALUE ...] [--force]   # write all settings (defaults), commented
-gammaspec config check RUN.toml [--set KEY=VALUE ...] [--quiet]  # validate; print warnings + effective config
-gammaspec config show EVENTS.h5                                  # pipeline settings stored in an event file
+gamma-spectrometry config init RUN.toml [--set KEY=VALUE ...] [--force]   # write all settings (defaults), commented
+gamma-spectrometry config check RUN.toml [--set KEY=VALUE ...] [--quiet]  # validate; print warnings + effective config
+gamma-spectrometry config show EVENTS.h5                                  # pipeline settings stored in an event file
 ```
 
 ## `process`
@@ -148,7 +148,7 @@ Run the pipeline: capture store → pre-processing → detection → event file
 next to the output (`OUT.png`).
 
 ```bash
-gammaspec process STORE.h5 OUT.h5 --template TEMPLATE.h5 [--no-line-removal] [--no-pole-zero]
+gamma-spectrometry process STORE.h5 OUT.h5 --template TEMPLATE.h5 [--no-line-removal] [--no-pole-zero]
                   [--no-tracker] [--method optimal|matched|sharpened|edge] [--threshold K]
                   [--snippets pileup|all|none] [--limit N] [--overwrite]
                   [--config RUN.toml] [--set KEY=VALUE ...]
@@ -179,7 +179,7 @@ Compare detection methods by injecting template pulses into real noise and into
 phase-scrambled noise (same spectrum, no pulses).
 
 ```bash
-gammaspec evaluate-detection STORE.h5 TEMPLATE.h5 OUT_DIR
+gamma-spectrometry evaluate-detection STORE.h5 TEMPLATE.h5 OUT_DIR
 ```
 
 Writes `detection_summary.json`, `detection_efficiency.png` and `detection_pairs.png`.
@@ -189,7 +189,7 @@ Writes `detection_summary.json`, `detection_efficiency.png` and `detection_pairs
 Benchmark the pile-up methods ([pileup-benchmark.md](pileup-benchmark.md)).
 
 ```bash
-gammaspec evaluate-pileup STORE.h5 TEMPLATE.h5 EVENTS.h5 OUT_DIR
+gamma-spectrometry evaluate-pileup STORE.h5 TEMPLATE.h5 EVENTS.h5 OUT_DIR
 ```
 
 `EVENTS.h5` is the event file of the same store (its pile-up snippets are test C). Prints the
@@ -202,7 +202,7 @@ Fit the main spectral peaks of an event file by category (isolated, resolved pil
 gap, all good events) and report the throughput.
 
 ```bash
-gammaspec report EVENTS.h5 [--n-peaks N] [--peaks C1,C2]
+gamma-spectrometry report EVENTS.h5 [--n-peaks N] [--peaks C1,C2]
 ```
 
 | Option | Default | Description |
@@ -218,7 +218,7 @@ Categories with fewer than 1000 events in the peak region are not fitted. Writes
 Calibrate the runs, build energy spectra and subtract the background ([spectrum.md](spectrum.md)).
 
 ```bash
-gammaspec spectrum SOURCE_EVENTS.h5 OUT_DIR [--background BACKGROUND_EVENTS.h5] [--bin-kev 5] [--emax 3000]
+gamma-spectrometry spectrum SOURCE_EVENTS.h5 OUT_DIR [--background BACKGROUND_EVENTS.h5] [--bin-kev 5] [--emax 3000]
 ```
 
 | Option | Default | Description |
@@ -234,12 +234,12 @@ background and net spectra, total rates, and the gain drift. Writes
 
 ## `benchmark`
 
-Compare gammaspec with a naive `scipy.signal.find_peaks` count and an emulated analog
+Compare this app with a naive `scipy.signal.find_peaks` count and an emulated analog
 chain (CR-RC⁴ shaping amplifier, baseline restorer, peak-hold ADC, pile-up rejector, dead
 time) on the same captures ([benchmark.md](benchmark.md)).
 
 ```bash
-gammaspec benchmark STORE.h5 EVENTS.h5 OUT_DIR [--first 0] [--n 100]
+gamma-spectrometry benchmark STORE.h5 EVENTS.h5 OUT_DIR [--first 0] [--n 100]
 ```
 
 | Option | Default | Description |
@@ -257,8 +257,8 @@ A simulated detector signal ([simulation.md](simulation.md)): a capture store wi
 truth, or binary samples on stdout to pipe into `stream -`.
 
 ```bash
-gammaspec simulate OUT.h5 [--captures 20] [--samples 524288] [--gap 0] [--set KEY=VALUE ...] [--config RUN.toml]
-gammaspec simulate - [--duration S] [--realtime [--speed X]] [--dtype f4|i2|i4] [--set KEY=VALUE ...]
+gamma-spectrometry simulate OUT.h5 [--captures 20] [--samples 524288] [--gap 0] [--set KEY=VALUE ...] [--config RUN.toml]
+gamma-spectrometry simulate - [--duration S] [--realtime [--speed X]] [--dtype f4|i2|i4] [--set KEY=VALUE ...]
 ```
 
 | Option | Default | Description |
@@ -279,7 +279,7 @@ Process a stream ([streaming.md](streaming.md)): binary samples on stdin, a repl
 recording, or the simulator. A shortcut for a run file with a streamed `input.kind`.
 
 ```bash
-gammaspec stream SOURCE OUT_DIR [--template T.h5] [--background B] [--realtime [--speed X]] [--show]
+gamma-spectrometry stream SOURCE OUT_DIR [--template T.h5] [--background B] [--realtime [--speed X]] [--show]
                  [--duration S] [--background-duration S] [--config RUN.toml] [--set KEY=VALUE ...]
 ```
 
@@ -300,18 +300,18 @@ gammaspec stream SOURCE OUT_DIR [--template T.h5] [--background B] [--realtime [
 Examples:
 
 ```bash
-gammaspec stream sim out/sim --duration 20 --show
-gammaspec simulate - --realtime | gammaspec stream - out/pipe --template data/characterization/background/template.h5
-gammaspec stream data/source_first100.h5 out/replay --template data/characterization/background/template.h5 --realtime
+gamma-spectrometry stream sim out/sim --duration 20 --show
+gamma-spectrometry simulate - --realtime | gamma-spectrometry stream - out/pipe --template data/characterization/background/template.h5
+gamma-spectrometry stream data/source_first100.h5 out/replay --template data/characterization/background/template.h5 --realtime
 ```
 
 ## `app`
 
 The browser app ([app.md](app.md)): choose the input and the stages, run, watch the live
-spectrum, see the results. Needs `pip install "gammaspec[app]"`.
+spectrum, see the results. Needs `pip install "gamma-spectrometry[app]"`.
 
 ```bash
-gammaspec app [--port 8501] [--no-browser] [--address localhost]
+gamma-spectrometry app [--port 8501] [--no-browser] [--address localhost]
 ```
 
 | Option | Default | Description |

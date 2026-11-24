@@ -6,7 +6,7 @@ import pytest
 pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
-APP = str(Path(__file__).resolve().parents[1] / "gammaspec" / "app.py")
+APP = str(Path(__file__).resolve().parents[1] / "gamma_spectrometry" / "app.py")
 
 
 def _app():
@@ -18,7 +18,7 @@ def _app():
 
 def test_page_renders_with_defaults():
     at = _app()
-    assert at.title[0].value == "gammaspec"
+    assert at.title[0].value == "Gamma Spectrometry App"
     # default input kind "store" with no source: the run is invalid, Run is disabled
     assert any("input.source: not set" in e.value for e in at.error)
     run = [b for b in at.button if b.label == "Run"][0]

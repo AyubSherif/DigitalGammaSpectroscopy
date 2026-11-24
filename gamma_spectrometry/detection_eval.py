@@ -13,7 +13,7 @@ Tests, for each method:
 * efficiency vs amplitude, and extra detections per injected pulse (artifacts);
 * pair resolution: two pulses at separation d (equal, big-then-small, small-then-big).
 
-Run:  python -m gammaspec evaluate-detection STORE TEMPLATE OUT_DIR
+Run:  python -m gamma_spectrometry evaluate-detection STORE TEMPLATE OUT_DIR
 """
 
 from __future__ import annotations

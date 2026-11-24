@@ -1,4 +1,4 @@
-"""Command line interface:  python -m gammaspec <command> ...
+"""Command line interface:  python -m gamma_spectrometry <command> ...
 
     index    DIR [--csv OUT]                     list captures in time order, report gaps and live time
     convert  DIR OUT.h5 [--limit N] [--workers]  convert the first N captures (chronological) to HDF5
@@ -347,7 +347,7 @@ def _cmd_app(args) -> int:
     try:
         import streamlit  # noqa: F401
     except ImportError:
-        print("the app needs Streamlit: pip install \"gammaspec[app]\" (or: pip install streamlit)")
+        print("the app needs Streamlit: pip install \"gamma-spectrometry[app]\" (or: pip install streamlit)")
         return 1
     from .app import launch
 
@@ -419,7 +419,7 @@ def _cmd_spectrum(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="gammaspec", description=__doc__,
+    p = argparse.ArgumentParser(prog="gamma-spectrometry", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -523,7 +523,7 @@ def main(argv: list[str] | None = None) -> int:
     pa.set_defaults(func=_cmd_app)
 
     pr = sub.add_parser("run", help="run the configured chain: input -> template -> events -> spectrum -> benchmark")
-    pr.add_argument("config", help="run file (.toml or .json), e.g. from 'gammaspec config init'")
+    pr.add_argument("config", help="run file (.toml or .json), e.g. from 'gamma-spectrometry config init'")
     pr.add_argument("--set", action="append", metavar="KEY=VALUE",
                     help="override one setting, e.g. --set pipeline.detect.threshold=6 (repeatable)")
     pr.set_defaults(func=_cmd_run)
@@ -569,9 +569,9 @@ def main(argv: list[str] | None = None) -> int:
     ps.add_argument("--emax", type=float, default=3000.0, help="upper end of the spectrum in keV")
     ps.set_defaults(func=_cmd_spectrum)
 
-    pb = sub.add_parser("benchmark", help="gammaspec vs naive find_peaks vs an emulated analog chain")
+    pb = sub.add_parser("benchmark", help="Gamma Spectrometry App vs naive find_peaks vs an emulated analog chain")
     pb.add_argument("store", help="HDF5 capture store")
-    pb.add_argument("events", help="event file of the same store (the gammaspec chain)")
+    pb.add_argument("events", help="event file of the same store (the Gamma Spectrometry App chain)")
     pb.add_argument("out", help="output directory")
     pb.add_argument("--first", type=int, default=0, help="first capture (default 0)")
     pb.add_argument("--n", type=int, default=100, help="number of captures (default 100; 0 = all)")

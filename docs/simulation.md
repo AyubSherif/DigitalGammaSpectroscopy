@@ -1,18 +1,18 @@
 # Signal simulator (step 10)
 
-`gammaspec.simulate` produces a realistic NaI(Tl) preamplifier waveform with known content, so the
+`gamma_spectrometry.simulate` produces a realistic NaI(Tl) preamplifier waveform with known content, so the
 pipeline can be tested beyond the recorded data. You can vary the source, rates, resolution,
 noise and pulse shape, and score the result against the **truth**: every pulse the simulator
 made.
 
-Code: `gammaspec/simulate.py`. Decision record: [ADR-0012](adr/0012-streaming-overlapping-frames.md).
+Code: `gamma_spectrometry/simulate.py`. Decision record: [ADR-0012](adr/0012-streaming-overlapping-frames.md).
 
 ```bash
-gammaspec run examples/run_simulation.toml            # source + background run, spectrum, truth check
-gammaspec simulate data/sim/co60.h5 --captures 100    # a simulated capture store (+ co60.truth.h5)
-gammaspec simulate data/sim/cs137.h5 --set nuclide=cs137 --set rate_cps=2000
-gammaspec simulate - --realtime | gammaspec stream - out/live --template T.h5   # a live simulated signal
-gammaspec stream sim out/sim --duration 20 --show     # simulate and process, with a live spectrum window
+gamma-spectrometry run examples/run_simulation.toml            # source + background run, spectrum, truth check
+gamma-spectrometry simulate data/sim/co60.h5 --captures 100    # a simulated capture store (+ co60.truth.h5)
+gamma-spectrometry simulate data/sim/cs137.h5 --set nuclide=cs137 --set rate_cps=2000
+gamma-spectrometry simulate - --realtime | gamma-spectrometry stream - out/live --template T.h5   # a live simulated signal
+gamma-spectrometry stream sim out/sim --duration 20 --show     # simulate and process, with a live spectrum window
 ```
 
 ## The model

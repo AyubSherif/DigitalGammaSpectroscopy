@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from gammaspec.detect import DetectConfig
-from gammaspec.events import FLAG_FIT_ADDED, FLAG_PILEUP
-from gammaspec.pipeline import Pipeline, PipelineConfig
-from gammaspec.preprocess import PreprocessConfig
-from gammaspec.solver import PileupSolver, SolverConfig, taper_autocovariance
+from gamma_spectrometry.detect import DetectConfig
+from gamma_spectrometry.events import FLAG_FIT_ADDED, FLAG_PILEUP
+from gamma_spectrometry.pipeline import Pipeline, PipelineConfig
+from gamma_spectrometry.preprocess import PreprocessConfig
+from gamma_spectrometry.solver import PileupSolver, SolverConfig, taper_autocovariance
 
 from .test_detect_events import T, place
 

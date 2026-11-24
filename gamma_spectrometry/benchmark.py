@@ -1,4 +1,4 @@
-"""Benchmark: the gammaspec pipeline vs a naive peak search vs an (emulated) analog chain.
+"""Benchmark: the Gamma Spectrometry App pipeline vs a naive peak search vs an (emulated) analog chain.
 
 All three chains see the **same recorded pulses** and are calibrated by the same
 automatic procedure (``calibration.calibrate``), so differences come from the processing.
@@ -12,13 +12,13 @@ automatic procedure (``calibration.calibrate``), so differences come from the pr
   pulse, parabolic interpolation like a peak-hold), lower-level discriminator, pile-up
   rejector (optional) and a non-extending ADC dead time after each conversion, with an
   MCA-style live-time clock.
-* **gammaspec**: the event file of the full pipeline (good events).
+* **Gamma Spectrometry App**: the event file of the full pipeline (good events).
 
 Metrics: FWHM of the 1173 / 1332 keV peaks (% and keV), valley-to-peak ratio between them,
 full-energy-peak rates (counts per live second), pile-up continuum 1450-2450 keV, total
 rate, low-energy threshold, dead-time / rejected fraction.
 
-Run:  gammaspec benchmark STORE EVENTS OUT_DIR [--first N0 --n N]
+Run:  gamma-spectrometry benchmark STORE EVENTS OUT_DIR [--first N0 --n N]
 """
 
 from __future__ import annotations
@@ -149,7 +149,7 @@ def analog_chain(store_path, captures, tau_shaping: float = 1e-6, tau_pz: float 
 
 
 # ----------------------------------------------------------------------------------------------
-# gammaspec
+# Gamma Spectrometry App
 # ----------------------------------------------------------------------------------------------
 
 def pipeline_chain(event_path, captures=None) -> ChainResult:
@@ -162,7 +162,7 @@ def pipeline_chain(event_path, captures=None) -> ChainResult:
         caps = caps[np.isin(caps["capture"], list(captures))]
     valid = ef.events if captures is None else ef.events[np.isin(ef.events["capture"], list(captures))]
     live = float(caps["live_time_s"].sum())
-    return ChainResult("gammaspec pipeline", ev["amplitude"], live, live, int(valid.size), int(ev.size))
+    return ChainResult("Gamma Spectrometry App", ev["amplitude"], live, live, int(valid.size), int(ev.size))
 
 
 # ----------------------------------------------------------------------------------------------

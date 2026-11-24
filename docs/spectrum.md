@@ -2,11 +2,11 @@
 
 The last processing step turns event amplitudes (volts) into calibrated energy spectra
 and subtracts the room background.
-Code: `gammaspec/calibration.py`, `gammaspec/analysis.py`.
+Code: `gamma_spectrometry/calibration.py`, `gamma_spectrometry/analysis.py`.
 Decision record: [ADR-0009](adr/0009-calibration-per-run.md).
 
 ```bash
-gammaspec spectrum data/events/source_first100.h5 data/spectrum/first100 --background data/events/background.h5
+gamma-spectrometry spectrum data/events/source_first100.h5 data/spectrum/first100 --background data/events/background.h5
 ```
 
 Outputs: `calibration_source.json`, `calibration_background.json`, `spectrum.csv` (bins,
@@ -102,7 +102,7 @@ Total rate above 120 keV: source 3943 /s, background 596 /s, net 3347 /s.
 ## Results (full 3-hour source run, 4,786 captures, 1,390 s live time)
 
 ```bash
-gammaspec spectrum data/events/source_full.h5 data/spectrum/full --background data/events/background.h5
+gamma-spectrometry spectrum data/events/source_full.h5 data/spectrum/full --background data/events/background.h5
 ```
 
 ![full calibration](img/full_calibration.png)

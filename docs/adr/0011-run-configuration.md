@@ -25,7 +25,7 @@ accepted too, which suits a UI.
 
 ## Decision
 
-* (c): `gammaspec/config.py` maps TOML tables to the dataclasses, recursively. A
+* (c): `gamma_spectrometry/config.py` maps TOML tables to the dataclasses, recursively. A
   `RunConfig` adds the input, template, spectrum and benchmark steps around `PipelineConfig`.
 * Strict loading:
   * unknown keys are errors with a "did you mean" suggestion;
@@ -36,7 +36,7 @@ accepted too, which suits a UI.
   inputs; warnings are for stage combinations that work but are not recommended.
 * `config init` writes the defaults. The comment of each field is taken from its code
   comment, so the code stays the single source.
-* `gammaspec/runner.py` runs the steps (input → template → process → spectrum →
+* `gamma_spectrometry/runner.py` runs the steps (input → template → process → spectrum →
   benchmark). It writes the effective configuration and a stamp per output (inputs +
   settings): an output is reused only when its stamp is unchanged.
 * The stage order stays fixed. Each stage depends on the output of the one before it, so
@@ -48,7 +48,7 @@ accepted too, which suits a UI.
   without further code. A parameter with restricted values needs one line in `CHOICES` or
   `POSITIVE`.
 * Every result can be traced: `config.toml` in the output folder, the configuration in
-  each event file (`gammaspec config show`), and the stamps.
+  each event file (`gamma-spectrometry config show`), and the stamps.
 * Changing one setting reruns only the steps it affects. Spectrum and benchmark always rerun
   (they are fast compared with processing).
 * `schema_version` lets later versions convert old run files.

@@ -20,7 +20,7 @@ pip install -r requirements.txt && pip install -e . --no-deps
 ## Repository layout
 
 ```text
-gammaspec/          the package (see docs/architecture.md#module-map)
+gamma_spectrometry/          the package (see docs/architecture.md#module-map)
 tests/              pytest suite
 docs/               documentation and ADRs
 data/               generated stores and indexes (gitignored)
@@ -49,7 +49,7 @@ python -m pytest -k store   # a subset
 
 `docs/walkthrough.ipynb` steps through every function in call order on the real data.
 It is generated and executed by `docs/build_walkthrough.py` (needs the local `data/`
-folder and the `gammaspec` Jupyter kernel: `python -m ipykernel install --user --name gammaspec`).
+folder and the `gamma-spectrometry` Jupyter kernel: `python -m ipykernel install --user --name gamma-spectrometry`).
 Rebuild it after changing a function it shows:
 
 ```bash

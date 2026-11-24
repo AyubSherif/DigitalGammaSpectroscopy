@@ -1,13 +1,13 @@
-"""gammaspec app: a browser UI for the whole chain (step 11).
+"""gamma-spectrometry app: a browser UI for the whole chain (step 11).
 
-    gammaspec app                 # opens http://localhost:8501
-    gammaspec app --port 8600
+    gamma-spectrometry app                 # opens http://localhost:8501
+    gamma-spectrometry app --port 8600
 
 The UI edits a run file (``docs/configuration.md``):
 * common choices as widgets: input, stages, simulation, output;
 * every other setting in the "All settings" TOML editor.
 
-**Run** saves the file to ``<output>/ui_run.toml`` and starts ``gammaspec run`` on it as a
+**Run** saves the file to ``<output>/ui_run.toml`` and starts ``gamma-spectrometry run`` on it as a
 separate process, so the page stays responsive and **Stop** can end it. While the run is
 going, the page shows its log and the live spectrum (``live/<run>/live_spectrum.json``,
 written by the stream processor). Afterwards it shows the results.
@@ -28,8 +28,8 @@ from pathlib import Path
 import numpy as np
 import streamlit as st
 
-from gammaspec import __version__
-from gammaspec import config as C
+from gamma_spectrometry import __version__
+from gamma_spectrometry import config as C
 
 KINDS = {
     "raw": "Raw ADC files (convert, then process)",
@@ -97,7 +97,7 @@ def input_panel(cfg: C.RunConfig) -> None:
               options=list(KINDS), format_func=KINDS.get, horizontal=False)
     if kind in ("raw", "store", "replay"):
         want = {"raw": "dir", "store": "file", "replay": "any"}[kind]
-        hint = {"raw": "folder of ASCII capture files", "store": ".h5 file from 'gammaspec convert'",
+        hint = {"raw": "folder of ASCII capture files", "store": ".h5 file from 'gamma-spectrometry convert'",
                 "replay": "raw folder or .h5 store"}[kind]
         c1, c2 = st.columns(2)
         with c1:
@@ -238,7 +238,7 @@ def start_run(cfg: C.RunConfig) -> None:
     log = open(out / "ui_run.log", "w", encoding="utf-8")
     env = dict(os.environ, PYTHONUTF8="1", PYTHONUNBUFFERED="1", MPLBACKEND="Agg")
     flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-    st.session_state.proc = subprocess.Popen([sys.executable, "-m", "gammaspec", "run", str(path)],
+    st.session_state.proc = subprocess.Popen([sys.executable, "-m", "gamma_spectrometry", "run", str(path)],
                                              stdout=log, stderr=subprocess.STDOUT, env=env, creationflags=flags)
     st.session_state.run_out = str(out)
     st.session_state.run_started = time.time()
@@ -257,7 +257,7 @@ def stop_run() -> None:
 def _plot_live(snap: dict, title: str):
     import matplotlib.pyplot as plt
 
-    from gammaspec import plotting as P
+    from gamma_spectrometry import plotting as P
 
     counts = np.asarray(snap["counts"], float)
     if "edges_kev" in snap:
@@ -362,8 +362,8 @@ def results_view(out: Path) -> None:
 # ----------------------------------------------------------------------------------------------
 
 def main() -> None:
-    st.set_page_config(page_title="gammaspec", layout="wide")
-    st.title("gammaspec")
+    st.set_page_config(page_title="Gamma Spectrometry App", layout="wide")
+    st.title("Gamma Spectrometry App")
     st.caption(f"Digital gamma-ray spectroscopy, v{__version__}: from ADC samples to a background-subtracted "
                "spectrum, in software.")
     cfg = _cfg()
@@ -405,7 +405,7 @@ def main() -> None:
 
 
 def launch(port: int | None = None, open_browser: bool = True, address: str = "localhost") -> int:
-    """Start the Streamlit server on this file (``gammaspec app``).
+    """Start the Streamlit server on this file (``gamma-spectrometry app``).
 
     It listens on this computer only (``localhost``) by default: the app reads files and starts
     processes, so it should not be reachable from the network unless that is intended.

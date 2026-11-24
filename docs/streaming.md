@@ -8,14 +8,14 @@ The pipeline was built on separate 0.29 s captures. Streaming lets it process a
 
 It shows a live spectrum while it runs.
 
-Code: `gammaspec/sources.py`, `gammaspec/stream.py`, `gammaspec/liveplot.py`.
+Code: `gamma_spectrometry/sources.py`, `gamma_spectrometry/stream.py`, `gamma_spectrometry/liveplot.py`.
 Decision record: [ADR-0012](adr/0012-streaming-overlapping-frames.md).
 
 ```bash
-gammaspec stream sim out/sim --duration 30 --show                       # simulated signal, live window
-gammaspec simulate - --realtime | gammaspec stream - out/pipe --template T.h5   # samples on stdin
-gammaspec stream data/source_first100.h5 out/replay --template T.h5 --realtime  # recorded data as a live stream
-gammaspec run examples/run_replay_realtime.toml                          # the same from a run file
+gamma-spectrometry stream sim out/sim --duration 30 --show                       # simulated signal, live window
+gamma-spectrometry simulate - --realtime | gamma-spectrometry stream - out/pipe --template T.h5   # samples on stdin
+gamma-spectrometry stream data/source_first100.h5 out/replay --template T.h5 --realtime  # recorded data as a live stream
+gamma-spectrometry run examples/run_replay_realtime.toml                          # the same from a run file
 ```
 
 ## Sources
@@ -76,7 +76,7 @@ While streaming, every `stream.update_s` (2 s):
 
 The live spectrum calibrates itself once it has 20,000 good events (≈ 5 s at 4,500 /s), and
 again at every doubling of the counts. It uses the same automatic calibration as
-[spectrum.md](spectrum.md). `gammaspec stream --show` opens a window that redraws it. A UI
+[spectrum.md](spectrum.md). `gamma-spectrometry stream --show` opens a window that redraws it. A UI
 (step 11) can read the JSON file or pass an `on_update` callback to `runner.run`.
 
 ![live spectrum](img/sim_live_spectrum.png)

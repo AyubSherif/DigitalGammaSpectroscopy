@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from gammaspec.cli import main
-from gammaspec.rawio import DEFAULT_LSB_VOLTS, build_index
-from gammaspec.store import CaptureStore, convert
+from gamma_spectrometry.cli import main
+from gamma_spectrometry.rawio import DEFAULT_LSB_VOLTS, build_index
+from gamma_spectrometry.store import CaptureStore, convert
 
 
 @pytest.mark.parametrize("workers", [1, 2])

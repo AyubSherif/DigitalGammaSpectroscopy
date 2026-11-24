@@ -5,9 +5,9 @@ import tomllib
 import numpy as np
 import pytest
 
-from gammaspec import config as C
-from gammaspec.pipeline import PipelineConfig
-from gammaspec.rawio import DEFAULT_LSB_VOLTS
+from gamma_spectrometry import config as C
+from gamma_spectrometry.pipeline import PipelineConfig
+from gamma_spectrometry.rawio import DEFAULT_LSB_VOLTS
 
 from .conftest import write_capture
 from .test_detect_events import T, place
@@ -103,8 +103,8 @@ def _synthetic_raw(folder, n_cap=2, n=40_000):
 
 
 def test_runner_raw_to_events_with_reuse(tmp_path, capsys):
-    from gammaspec import runner
-    from gammaspec.events import EventFile
+    from gamma_spectrometry import runner
+    from gamma_spectrometry.events import EventFile
 
     _synthetic_raw(tmp_path / "raw")
     T.save(tmp_path / "t.h5")

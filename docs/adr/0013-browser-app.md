@@ -21,14 +21,14 @@ For running: in the page's own process (threads), or as a separate process.
 
 ## Decision
 
-* (c), in one file (`gammaspec/app.py`), launched by `gammaspec app`. By default it listens
+* (c), in one file (`gamma_spectrometry/app.py`), launched by `gamma-spectrometry app`. By default it listens
   on `localhost` only.
 * The page edits a `RunConfig`:
   * common settings are widgets, each bound to its dataclass field;
   * every other setting is in a TOML editor showing the same run file.
 
   Validation is `config.from_dict` + `config.check`, the same as on the command line.
-* **Run** writes `<output>/ui_run.toml` and starts `python -m gammaspec run` on it as a
+* **Run** writes `<output>/ui_run.toml` and starts `python -m gamma_spectrometry run` on it as a
   **separate process**:
   * the page stays responsive;
   * **Stop** can end the process tree;
@@ -41,7 +41,7 @@ For running: in the page's own process (threads), or as a separate process.
 
 * The app adds no processing code. A new setting appears in the TOML editor automatically,
   and it needs a widget only if it should be prominent.
-* Streamlit becomes an optional dependency (`pip install "gammaspec[app]"`). The rest of the
+* Streamlit becomes an optional dependency (`pip install "gamma-spectrometry[app]"`). The rest of the
   program does not import it.
 * Live updates arrive in steps of 2 s (stream `update_s`), which suits a spectrum display.
 * The page is tested without a browser (`streamlit.testing.v1.AppTest`).

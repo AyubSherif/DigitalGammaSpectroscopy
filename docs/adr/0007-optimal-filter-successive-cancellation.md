@@ -11,7 +11,7 @@ residual has excess low-frequency content (≈ 0.7 mV rms, of which the white fl
 Detection must find small pulses (low threshold), separate close pulses (pile-up), and not
 invent pulses (false triggers, artifacts of large pulses).
 
-Measured with pulses injected into real noise (`gammaspec evaluate-detection`):
+Measured with pulses injected into real noise (`gamma-spectrometry evaluate-detection`):
 
 | Filter | Output noise | Smallest pulse found reliably (≥ 96 %) | Two pulses resolved (300/300 mV; 300/30 mV) | Extra detections per 1 V pulse |
 |---|---|---|---|---|

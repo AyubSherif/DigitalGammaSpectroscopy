@@ -8,7 +8,7 @@ starts a new, separate recording (a capture). Samples within a segment are conti
 | ``StoreSource`` | one per capture of an HDF5 store | replay converted data as a stream |
 | ``RawSource`` | one per ASCII capture file (no conversion) | stream straight from the digitiser's files |
 | ``SimulationSource`` | one continuous segment | test input, not limited to the recorded data |
-| ``PipeSource`` | one continuous segment | binary samples from stdin, a file or a FIFO (a live digitiser, or ``gammaspec simulate --stdout``) |
+| ``PipeSource`` | one continuous segment | binary samples from stdin, a file or a FIFO (a live digitiser, or ``gamma-spectrometry simulate --stdout``) |
 
 ``Paced`` releases a source's chunks no faster than real time (×``speed``), which turns a
 replay or a simulation into a live stream. A live source cannot wait for the processor:

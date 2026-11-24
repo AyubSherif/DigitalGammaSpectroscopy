@@ -2,7 +2,7 @@
 
 Detection turns the clean signal (after [pre-processing](baseline-restoration.md)) into a
 list of pulses. This is the data-reduction step: ~7 MB of text per capture become a few
-kB of events. Code: `gammaspec/detect.py`, `gammaspec/pipeline.py`, `gammaspec/events.py`.
+kB of events. Code: `gamma_spectrometry/detect.py`, `gamma_spectrometry/pipeline.py`, `gamma_spectrometry/events.py`.
 Decision record: [ADR-0007](adr/0007-optimal-filter-successive-cancellation.md).
 
 ```text
@@ -62,7 +62,7 @@ Captures are independent, so `run` processes them in parallel worker processes.
 
 ## Evaluation with injected pulses
 
-`gammaspec evaluate-detection`: template pulses injected into the real clean noise of
+`gamma-spectrometry evaluate-detection`: template pulses injected into the real clean noise of
 20 captures (⁶⁰Co run, 2.1 s of noise), and into the same noise with randomised Fourier
 phases (same spectrum, no pulses) for the false-trigger rate.
 

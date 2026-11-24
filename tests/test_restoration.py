@@ -4,13 +4,13 @@ import numpy as np
 import pytest
 from scipy.signal import lfilter, residuez
 
-from gammaspec.baseline import (PoleZero, TrackerConfig, design_pole_zero, filter_template,
+from gamma_spectrometry.baseline import (PoleZero, TrackerConfig, design_pole_zero, filter_template,
                                 track_baseline)
-from gammaspec.interference import LineRemoval
-from gammaspec.preprocess import PreprocessConfig, Preprocessor
-from gammaspec.signal import find_pulses, noise_sigma, pulse_free_mask
-from gammaspec.spectrum import fit_peaks
-from gammaspec.template import PulseTemplate, extract_windows, fit_pulses
+from gamma_spectrometry.interference import LineRemoval
+from gamma_spectrometry.preprocess import PreprocessConfig, Preprocessor
+from gamma_spectrometry.signal import find_pulses, noise_sigma, pulse_free_mask
+from gamma_spectrometry.spectrum import fit_peaks
+from gamma_spectrometry.template import PulseTemplate, extract_windows, fit_pulses
 
 FS = 1.8e6
 

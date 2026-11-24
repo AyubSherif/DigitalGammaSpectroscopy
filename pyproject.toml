@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gammaspec"
+name = "gamma-spectrometry"
 version = "0.3.0"
 description = "Digital pulse processing for gamma-ray spectroscopy: baseline restoration, pile-up correction, spectra"
 requires-python = ">=3.11"
@@ -14,10 +14,10 @@ app = ["streamlit>=1.38"]
 dev = ["pytest>=8", "streamlit>=1.38", "ipykernel>=6", "nbformat>=5", "nbclient>=0.10"]
 
 [project.scripts]
-gammaspec = "gammaspec.cli:main"
+gamma-spectrometry = "gamma_spectrometry.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["gammaspec*"]
+include = ["gamma_spectrometry*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

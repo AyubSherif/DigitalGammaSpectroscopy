@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from gammaspec.analysis import EnergySpectrum, NetSpectrum, energy_spectrum, fit_line_groups, subtract
-from gammaspec.calibration import (Calibration, LinePoint, anchor_gain, calibrate, fit_calibration,
+from gamma_spectrometry.analysis import EnergySpectrum, NetSpectrum, energy_spectrum, fit_line_groups, subtract
+from gamma_spectrometry.calibration import (Calibration, LinePoint, anchor_gain, calibrate, fit_calibration,
                                    gain_match)
 
 

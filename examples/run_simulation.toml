@@ -1,6 +1,6 @@
 # A simulated measurement: 60Co source run and room-background run, streamed through the
 # pipeline, calibrated, background-subtracted, and scored against the simulator's truth.
-#   gammaspec run examples/run_simulation.toml
+#   gamma-spectrometry run examples/run_simulation.toml
 # No recorded data needed. Change the detector, the source or the rates below.
 
 output = "data/runs/simulation"

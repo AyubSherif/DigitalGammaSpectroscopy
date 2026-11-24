@@ -20,7 +20,7 @@ so comparing our numbers with literature numbers mixes detector and processing e
   * a peak-hold ADC and a lower-level discriminator;
   * an optional pile-up rejector;
   * a 5 µs non-extending dead time with a live-time clock.
-* Run all chains (naive, analog variants, gammaspec) on the **same captures**. Calibrate each
+* Run all chains (naive, analog variants, this app) on the **same captures**. Calibrate each
   chain with the **same automatic calibration**, and measure it with the **same metrics**
   (FWHM, valley-to-peak, peak rates, pile-up continuum, threshold, recorded / live fraction).
 * Quote literature values for typical 3″×3″ NaI(Tl) analog systems **as context only**, and
@@ -30,7 +30,7 @@ so comparing our numbers with literature numbers mixes detector and processing e
 
 * Differences between chains come from the processing alone.
 * The emulated analog chain is optimistic: it has no electronic noise of its own, an ideal
-  pole-zero setting and a perfect ADC. The improvement of gammaspec over it is therefore a
+  pole-zero setting and a perfect ADC. The improvement of this app over it is therefore a
   lower bound.
 * The emulation runs at about real-time speed in Python, so the benchmark uses 100 captures
   by default (`--n` selects more).

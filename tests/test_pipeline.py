@@ -3,12 +3,12 @@ import datetime as dt
 import numpy as np
 import pytest
 
-from gammaspec.detect import DetectConfig
-from gammaspec.events import FLAG_PILEUP, FLAG_WARMUP, EventFile
-from gammaspec.pipeline import EventConfig, PipelineConfig, run, summarize
-from gammaspec.preprocess import PreprocessConfig
-from gammaspec.rawio import DEFAULT_LSB_VOLTS, build_index
-from gammaspec.store import convert
+from gamma_spectrometry.detect import DetectConfig
+from gamma_spectrometry.events import FLAG_PILEUP, FLAG_WARMUP, EventFile
+from gamma_spectrometry.pipeline import EventConfig, PipelineConfig, run, summarize
+from gamma_spectrometry.preprocess import PreprocessConfig
+from gamma_spectrometry.rawio import DEFAULT_LSB_VOLTS, build_index
+from gamma_spectrometry.store import convert
 
 from .conftest import write_capture
 from .test_detect_events import T, place

@@ -37,7 +37,7 @@ Dt:       5.555555555555556e-04 ms        ← sample interval (units: s, ms, us,
 
 ## HDF5 capture store (`*.h5`)
 
-Written by `gammaspec convert` / `store.convert`; read with `store.CaptureStore`.
+Written by `gamma-spectrometry convert` / `store.convert`; read with `store.CaptureStore`.
 
 | Path | Type | Shape | Description |
 |---|---|---|---|
@@ -55,14 +55,14 @@ Root attributes:
 | `dt_s`, `sample_rate_hz` | sample interval and rate |
 | `n_samples` | samples per capture |
 | `source_dir` | directory the captures came from |
-| `gammaspec_version` | version of the writer |
+| `app_version` | version of the writer |
 
 A conversion is written first to `<name>.partial` and renamed when complete, so
 an interrupted run never leaves a store that looks valid.
 
 ## Index CSV
 
-Written by `gammaspec index --csv`. One row per capture, in time order.
+Written by `gamma-spectrometry index --csv`. One row per capture, in time order.
 
 | Column | Description |
 |---|---|
@@ -75,7 +75,7 @@ Written by `gammaspec index --csv`. One row per capture, in time order.
 
 ## Event file (`*.h5`)
 
-Written by `gammaspec process` and by the stream processor (`events.EventWriter`); read with
+Written by `gamma-spectrometry process` and by the stream processor (`events.EventWriter`); read with
 `events.EventFile`. In a streamed file, a "capture" is a frame (its core): `capture` is
 the frame number and `index` is the sample within the core.
 Every column is a separate compressed, resizable dataset.
@@ -114,11 +114,11 @@ after its last.
 
 Attributes: `config` (the full `PipelineConfig` as JSON), `template`, `source_store` (for a
 stream: a description of the source), `lsb_volts`, `dt_s`, `fit_baseline`, `pole_zero`
-(filter coefficients), `stream` (the `StreamConfig`, streamed files only), `gammaspec_version`.
+(filter coefficients), `stream` (the `StreamConfig`, streamed files only), `app_version`.
 
 ## Simulation truth (`*.truth.h5`, `truth/<run>.h5`)
 
-Written by `gammaspec simulate` (next to the store) and by simulated runs; read with
+Written by `gamma-spectrometry simulate` (next to the store) and by simulated runs; read with
 `simulate.load_truth`. One row per true pulse (one per decay or background event that
 deposited energy):
 

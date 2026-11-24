@@ -1,13 +1,13 @@
 # Architecture
 
-This document explains how `gammaspec` is organised and why. For file formats
+This document explains how the Gamma Spectrometry App is organised and why. For file formats
 see [data-formats.md](data-formats.md); for the reasoning behind individual
 choices see the [ADRs](adr/).
 
 ## Signal chain and measured properties
 
 ```text
-NaI(Tl) crystal → PMT → preamplifier → ADC (1.8 MS/s) → PC (ASCII capture files) → gammaspec
+NaI(Tl) crystal → PMT → preamplifier → ADC (1.8 MS/s) → PC (ASCII capture files) → Gamma Spectrometry App
 ```
 
 Properties measured from the data, which drive the design (details and figures in
@@ -58,36 +58,36 @@ process a live stream, not just stored files.
 
 | Module | Responsibility |
 |---|---|
-| `gammaspec/rawio.py` | Parse ASCII capture files: header, fast fixed-width sample parser, volts → ADC code conversion with grid validation, ADC step estimation, chronological index |
-| `gammaspec/store.py` | Convert captures to a compressed HDF5 store (parallel parsing); `CaptureStore` gives read access |
-| `gammaspec/signal.py` | Polarity, robust noise estimates, coarse leading-edge trigger, isolation and pulse-free masks |
-| `gammaspec/template.py` | `PulseTemplate` (fine-grid, sub-sample evaluation, HDF5 I/O); per-pulse fit of amplitude, baseline and sub-sample time; iterative template construction with phase equalisation; analytic multi-exponential model |
-| `gammaspec/noise.py` | Pulse-free noise windows, power spectral density, autocorrelation |
-| `gammaspec/characterize.py` | Detector characterisation: template, model, shape vs amplitude, noise (quiet/noisy split, interference lines), stability, preliminary spectrum, plots |
-| `gammaspec/interference.py` | `LineRemoval` stage: line detection in the masked spectrum, block-wise sinusoid subtraction on pulse-free samples |
-| `gammaspec/baseline.py` | Pole-zero filter design from the pulse model, `PoleZero` stage (streamable IIR), `filter_template`, `BaselineTracker` stage |
-| `gammaspec/preprocess.py` | `PreprocessConfig` / `Preprocessor`: the optional chain polarity+offset → lines → pole-zero → tracker |
-| `gammaspec/detect.py` | `Detector`: per-capture optimal filter (noise-whitened matched filter), successive cancellation, local thresholds; matched / sharpened / edge alternatives |
-| `gammaspec/events.py` | Event-file format: `EventWriter` (append per capture), `EventFile` (read), flag bits |
-| `gammaspec/pipeline.py` | `Pipeline` / `run`: store → pre-processing → detection → clusters, flags, template fits, snippets → event file (parallel over captures) |
-| `gammaspec/detection_eval.py` | Injection tests of the detection methods in real and phase-scrambled noise |
-| `gammaspec/pileup.py` | Pile-up resolution methods for one cluster: TM (paper), HYPER, LS, LS / GLS / WLS with sub-sample timing |
-| `gammaspec/solver.py` | `PileupSolver`: WLS + timing fit of a cluster, residual search for hidden pulses (step 6) |
-| `gammaspec/pileup_eval.py` | Pile-up benchmark: template pairs in real noise, real-pulse pairs, real pile-up events |
-| `gammaspec/calibration.py` | Energy calibration: anchor, bounded line fits, calibration curve, gain matching, gain vs time |
-| `gammaspec/analysis.py` | Energy spectra, live-time normalisation, background subtraction, net line rates, outputs (step 7) |
-| `gammaspec/spectrum.py` | Gaussian peak fits on a linear background (resolution, centroids) |
-| `gammaspec/benchmark.py` | Benchmark chains on the same captures: naive `find_peaks`, emulated analog CR-RC⁴ chain (BLR, peak-hold, PUR, dead time, live-time clock), gammaspec; common metrics |
-| `gammaspec/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |
-| `gammaspec/plotting.py` | Shared figure style (validated colour palette, recessive axes) |
-| `gammaspec/config.py` | Run file: `RunConfig` (input, template, pipeline, spectrum, benchmark), TOML/JSON load and save, strict validation, stage-combination checks |
-| `gammaspec/runner.py` | `run(RunConfig)`: input → template → events → spectrum → benchmark, reusing outputs whose inputs and settings are unchanged |
-| `gammaspec/simulate.py` | Signal simulator: pulse model, ⁶⁰Co/¹³⁷Cs cascades with summing, Klein–Nishina Compton, room background, noise, interference, ADC; continuous `read(n)`; simulated stores; truth and `compare_to_truth` |
-| `gammaspec/sources.py` | Signal sources yielding chunks: `StoreSource`, `RawSource`, `SimulationSource`, `PipeSource` (stdin / FIFO), `Paced` (real time) |
-| `gammaspec/stream.py` | `StreamProcessor`: overlapping frames through the capture pipeline (parallel, live frame dropping), `LiveSpectrum`, `process_stream` |
-| `gammaspec/liveplot.py` | Live spectrum window for `gammaspec stream --show` |
-| `gammaspec/app.py` | Browser app (Streamlit): widgets and a TOML editor for the run file, Run / Stop of `gammaspec run` as a separate process, live spectrum, results |
-| `gammaspec/cli.py`, `__main__.py` | Command-line entry point: `python -m gammaspec …` |
+| `gamma_spectrometry/rawio.py` | Parse ASCII capture files: header, fast fixed-width sample parser, volts → ADC code conversion with grid validation, ADC step estimation, chronological index |
+| `gamma_spectrometry/store.py` | Convert captures to a compressed HDF5 store (parallel parsing); `CaptureStore` gives read access |
+| `gamma_spectrometry/signal.py` | Polarity, robust noise estimates, coarse leading-edge trigger, isolation and pulse-free masks |
+| `gamma_spectrometry/template.py` | `PulseTemplate` (fine-grid, sub-sample evaluation, HDF5 I/O); per-pulse fit of amplitude, baseline and sub-sample time; iterative template construction with phase equalisation; analytic multi-exponential model |
+| `gamma_spectrometry/noise.py` | Pulse-free noise windows, power spectral density, autocorrelation |
+| `gamma_spectrometry/characterize.py` | Detector characterisation: template, model, shape vs amplitude, noise (quiet/noisy split, interference lines), stability, preliminary spectrum, plots |
+| `gamma_spectrometry/interference.py` | `LineRemoval` stage: line detection in the masked spectrum, block-wise sinusoid subtraction on pulse-free samples |
+| `gamma_spectrometry/baseline.py` | Pole-zero filter design from the pulse model, `PoleZero` stage (streamable IIR), `filter_template`, `BaselineTracker` stage |
+| `gamma_spectrometry/preprocess.py` | `PreprocessConfig` / `Preprocessor`: the optional chain polarity+offset → lines → pole-zero → tracker |
+| `gamma_spectrometry/detect.py` | `Detector`: per-capture optimal filter (noise-whitened matched filter), successive cancellation, local thresholds; matched / sharpened / edge alternatives |
+| `gamma_spectrometry/events.py` | Event-file format: `EventWriter` (append per capture), `EventFile` (read), flag bits |
+| `gamma_spectrometry/pipeline.py` | `Pipeline` / `run`: store → pre-processing → detection → clusters, flags, template fits, snippets → event file (parallel over captures) |
+| `gamma_spectrometry/detection_eval.py` | Injection tests of the detection methods in real and phase-scrambled noise |
+| `gamma_spectrometry/pileup.py` | Pile-up resolution methods for one cluster: TM (paper), HYPER, LS, LS / GLS / WLS with sub-sample timing |
+| `gamma_spectrometry/solver.py` | `PileupSolver`: WLS + timing fit of a cluster, residual search for hidden pulses (step 6) |
+| `gamma_spectrometry/pileup_eval.py` | Pile-up benchmark: template pairs in real noise, real-pulse pairs, real pile-up events |
+| `gamma_spectrometry/calibration.py` | Energy calibration: anchor, bounded line fits, calibration curve, gain matching, gain vs time |
+| `gamma_spectrometry/analysis.py` | Energy spectra, live-time normalisation, background subtraction, net line rates, outputs (step 7) |
+| `gamma_spectrometry/spectrum.py` | Gaussian peak fits on a linear background (resolution, centroids) |
+| `gamma_spectrometry/benchmark.py` | Benchmark chains on the same captures: naive `find_peaks`, emulated analog CR-RC⁴ chain (BLR, peak-hold, PUR, dead time, live-time clock), Gamma Spectrometry App; common metrics |
+| `gamma_spectrometry/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |
+| `gamma_spectrometry/plotting.py` | Shared figure style (validated colour palette, recessive axes) |
+| `gamma_spectrometry/config.py` | Run file: `RunConfig` (input, template, pipeline, spectrum, benchmark), TOML/JSON load and save, strict validation, stage-combination checks |
+| `gamma_spectrometry/runner.py` | `run(RunConfig)`: input → template → events → spectrum → benchmark, reusing outputs whose inputs and settings are unchanged |
+| `gamma_spectrometry/simulate.py` | Signal simulator: pulse model, ⁶⁰Co/¹³⁷Cs cascades with summing, Klein–Nishina Compton, room background, noise, interference, ADC; continuous `read(n)`; simulated stores; truth and `compare_to_truth` |
+| `gamma_spectrometry/sources.py` | Signal sources yielding chunks: `StoreSource`, `RawSource`, `SimulationSource`, `PipeSource` (stdin / FIFO), `Paced` (real time) |
+| `gamma_spectrometry/stream.py` | `StreamProcessor`: overlapping frames through the capture pipeline (parallel, live frame dropping), `LiveSpectrum`, `process_stream` |
+| `gamma_spectrometry/liveplot.py` | Live spectrum window for `gamma-spectrometry stream --show` |
+| `gamma_spectrometry/app.py` | Browser app (Streamlit): widgets and a TOML editor for the run file, Run / Stop of `gamma-spectrometry run` as a separate process, live spectrum, results |
+| `gamma_spectrometry/cli.py`, `__main__.py` | Command-line entry point: `python -m gamma_spectrometry …` |
 | `tests/` | Unit tests (synthetic captures) and real-data checks that are skipped when the data is absent |
 
 ## Performance

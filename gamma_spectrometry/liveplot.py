@@ -1,4 +1,4 @@
-"""A live spectrum window for ``gammaspec stream --show`` (matplotlib, interactive).
+"""A live spectrum window for ``gamma-spectrometry stream --show`` (matplotlib, interactive).
 
 ``LivePlot.update(status, spectrum)`` is the ``on_update`` callback of the stream
 processor: it redraws the spectrum (in keV once the live spectrum is calibrated, in mV
@@ -11,7 +11,7 @@ import numpy as np
 
 
 class LivePlot:
-    def __init__(self, title: str = "gammaspec live spectrum"):
+    def __init__(self, title: str = "Gamma Spectrometry App live spectrum"):
         import matplotlib.pyplot as plt
 
         from . import plotting as P

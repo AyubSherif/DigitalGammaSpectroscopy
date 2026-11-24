@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from gammaspec.pileup import METHODS, PileupContext, resolve
-from gammaspec.template import PulseTemplate
+from gamma_spectrometry.pileup import METHODS, PileupContext, resolve
+from gamma_spectrometry.template import PulseTemplate
 
 from .test_detect_events import T
 

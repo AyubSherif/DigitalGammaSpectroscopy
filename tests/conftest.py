@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from gammaspec.rawio import DEFAULT_LSB_VOLTS
+from gamma_spectrometry.rawio import DEFAULT_LSB_VOLTS
 
 REAL_DATA = Path(__file__).resolve().parents[1] / "ADC_raw_output"
 

@@ -8,7 +8,7 @@ Both runs are calibrated on their own (gain matching through calibration), histo
 the same energy bins and normalised by their own live time. A background line (40K) must
 vanish in the net spectrum; that is the check of the gain matching and the normalisation.
 
-Run:  python -m gammaspec spectrum SOURCE_EVENTS OUT_DIR --background BACKGROUND_EVENTS
+Run:  python -m gamma_spectrometry spectrum SOURCE_EVENTS OUT_DIR --background BACKGROUND_EVENTS
 """
 
 from __future__ import annotations

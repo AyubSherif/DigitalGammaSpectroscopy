@@ -6,19 +6,19 @@ A single **run file** (TOML) describes a whole run:
 * every parameter;
 * which analysis steps follow.
 
-`gammaspec run` executes it. No code is needed to switch a correction off or change a
+`gamma-spectrometry run` executes it. No code is needed to switch a correction off or change a
 threshold, and the same file reproduces the run later.
 
-Code: `gammaspec/config.py` (schema, loading, validation), `gammaspec/runner.py` (runs the
+Code: `gamma_spectrometry/config.py` (schema, loading, validation), `gamma_spectrometry/runner.py` (runs the
 steps). Decision records: [ADR-0003](adr/0003-modular-optional-stages.md),
 [ADR-0011](adr/0011-run-configuration.md).
 
 ```bash
-gammaspec config init my_run.toml          # every setting at its default, with a comment on each
-gammaspec config check my_run.toml         # validate; show warnings and the effective configuration
-gammaspec run my_run.toml                  # run it
-gammaspec run my_run.toml --set pipeline.detect.threshold=6 --set input.limit=20   # one-off changes
-gammaspec config show results/events/source.h5   # the settings an event file was made with
+gamma-spectrometry config init my_run.toml          # every setting at its default, with a comment on each
+gamma-spectrometry config check my_run.toml         # validate; show warnings and the effective configuration
+gamma-spectrometry run my_run.toml                  # run it
+gamma-spectrometry run my_run.toml --set pipeline.detect.threshold=6 --set input.limit=20   # one-off changes
+gamma-spectrometry config show results/events/source.h5   # the settings an event file was made with
 ```
 
 Examples: [examples/run_2021_raw.toml](../examples/run_2021_raw.toml) (the whole chain from
@@ -62,7 +62,7 @@ both runs with every stage on, then calibrates and subtracts the background.
 | 2. **Template** | `template.path` empty: build one with the characterisation step from `template.build_from` (`[template.characterize]` settings); for `simulation`, the simulator's own pulse shape. Otherwise use the given file. | `template/` |
 | 3. **Process** | Always, for the source run and (if `input.background` is set) the background run: pre-processing → detection → pile-up solver (`[pipeline.*]`). | `events/source.h5`, `events/background.h5` |
 | 4. **Spectrum** | `spectrum.enabled` (default on): calibration, spectra, background subtraction if there is a background run. | `spectrum/` |
-| 5. **Benchmark** | `benchmark.enabled` (default off): naive / analog / gammaspec comparison (needs a store: not for `simulation` / `pipe`). | `benchmark/` |
+| 5. **Benchmark** | `benchmark.enabled` (default off): naive / analog / Gamma Spectrometry App comparison (needs a store: not for `simulation` / `pipe`). | `benchmark/` |
 | + **Truth** | `input.kind = "simulation"`: the events are scored against the simulator's truth. | `truth/`, `simulation_check.json` |
 | (streamed) | while streaming: status line, live spectrum | `live/<run>/live_spectrum.json`, `.png` |
 
@@ -110,7 +110,7 @@ detection needs a restored baseline to set its threshold. Only their use is opti
 | `[stream]` | `stream.StreamConfig` | frame geometry (`frame`, `pre`, `post`), `chunk`, `max_backlog`, `realtime`, `speed`, updates, live-spectrum channels |
 | `[simulation]`, `[simulation.signal]` | `config.SimulationConfig`, `simulate.SimConfig` | durations; nuclide, rates, efficiency, resolution, gain, noise, interference, ADC, pulse shape, seed |
 
-`gammaspec config init` writes all of them, each line with its meaning. The tables mirror
+`gamma-spectrometry config init` writes all of them, each line with its meaning. The tables mirror
 the dataclasses in the code, so a new parameter in the code appears in the file
 automatically.
 
@@ -157,7 +157,7 @@ still work as shortcuts that override the file.
   background run needs ~40 captures (12 s) for ⁴⁰K. The run then stops with a message saying
   so; the outputs of earlier steps are kept and reused next time.
 * Choosing a pile-up method other than the WLS solver (TM, HYPER, …) is possible in the
-  benchmark only (`gammaspec evaluate-pileup`), not in the pipeline. These methods
+  benchmark only (`gamma-spectrometry evaluate-pileup`), not in the pipeline. These methods
   were measured to be worse ([pileup-benchmark.md](pileup-benchmark.md)).
 * Streamed and simulated input: [streaming.md](streaming.md), [simulation.md](simulation.md).
   The UI (step 11) will edit the same run file.

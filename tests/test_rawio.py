@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from gammaspec.rawio import (DEFAULT_LSB_VOLTS, RawFormatError, build_index, estimate_lsb,
+from gamma_spectrometry.rawio import (DEFAULT_LSB_VOLTS, RawFormatError, build_index, estimate_lsb,
                              parse_samples, read_header, read_raw_file, volts_to_codes)
 
 from .conftest import REAL_DATA

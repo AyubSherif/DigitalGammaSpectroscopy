@@ -1,20 +1,20 @@
-# Benchmark: naive peak count vs analog chain vs gammaspec
+# Benchmark: naive peak count vs analog chain vs Gamma Spectrometry App
 
-This benchmark asks how much the processing in `gammaspec` improves the spectrum. It
+This benchmark asks how much the processing in the Gamma Spectrometry App improves the spectrum. It
 compares three ways of turning the same recorded preamplifier waveforms into a spectrum:
 
 1. **Naive:** `scipy.signal.find_peaks` on the raw waveform, with no transformation.
 2. **Analog:** an emulated conventional NaI(Tl) chain (preamplifier + shaping amplifier + MCA).
-3. **gammaspec:** the full pipeline.
+3. **Gamma Spectrometry App:** the full pipeline.
 
 The results are also put next to typical published values for NaI(Tl) detectors read out
 with analog electronics.
 
-Code: `gammaspec/benchmark.py`. Decision record:
+Code: `gamma_spectrometry/benchmark.py`. Decision record:
 [ADR-0010](adr/0010-benchmark-on-same-data.md).
 
 ```bash
-gammaspec benchmark data/source_first100.h5 data/events/source_first100.h5 data/benchmark/first100
+gamma-spectrometry benchmark data/source_first100.h5 data/events/source_first100.h5 data/benchmark/first100
 #   --first N0 --n N   choose the captures (default: the first 100; --n 0 = all)
 ```
 
@@ -33,7 +33,7 @@ processing.
 | **analog CR-RC⁴, 1 µs, no PUR** | Emulates the textbook chain on the digitised waveform. A **shaping amplifier** (pole-zero-cancelled CR differentiator, which removes the 4.1 µs pulse decay, followed by four RC integrators; semi-Gaussian output) and a **baseline restorer**. Then a **peak-sensing ADC**, i.e. a peak-hold with parabolic interpolation. A **lower-level discriminator** at 5 σ of the shaped noise. **5 µs non-extending ADC dead time** after each conversion, with an MCA **live-time clock**. |
 | **analog CR-RC⁴, 1 µs, with PUR** | As above, plus a **pile-up rejector**: both pulses are discarded when two triggers fall within one shaped-pulse width (10 τ). The rejected time is subtracted from live time. |
 | **analog CR-RC⁴, 0.5 µs, with PUR** | The same with 0.5 µs shaping: shorter pulses, so less pile-up. |
-| **gammaspec** | The pipeline's event file: interference removal, pole-zero correction and baseline tracking, optimal-filter detection, and the pile-up solver. Good events only (isolated + resolved pile-up). |
+| **Gamma Spectrometry App** | The pipeline's event file: interference removal, pole-zero correction and baseline tracking, optimal-filter detection, and the pile-up solver. Good events only (isolated + resolved pile-up). |
 
 The recording is the preamplifier output (PMT → preamplifier → ADC), so the emulation uses
 the real preamplifier and replaces only what follows it: the shaping amplifier and the MCA.
@@ -56,7 +56,7 @@ decays in 0.25 µs.
 
 ![benchmark spectra](img/benchmark_spectra.png)
 
-| | naive `find_peaks` | analog 1 µs, no PUR | analog 1 µs, PUR | analog 0.5 µs, PUR | **gammaspec** |
+| | naive `find_peaks` | analog 1 µs, no PUR | analog 1 µs, PUR | analog 0.5 µs, PUR | **Gamma Spectrometry App** |
 |---|---|---|---|---|---|
 | FWHM 1173 keV | 97.0 keV (8.27 %) | 84.3 keV (7.18 %) | 83.5 keV (7.11 %) | 81.6 keV (6.95 %) | **76.8 keV (6.54 %)** |
 | FWHM 1332 keV | 99.1 keV (7.44 %) | 87.1 keV (6.55 %) | 86.5 keV (6.50 %) | 82.7 keV (6.21 %) | **80.5 keV (6.05 %)** |
@@ -68,7 +68,7 @@ decays in 0.25 µs.
 | Triggers → recorded | 177,291 → 177,291 | 116,361 → 116,256 | 116,361 → 112,884 | 124,056 → 121,920 | 132,993 → 128,970 |
 | Live fraction | (100 %, no dead time) | 98.0 % | 98.0 % | 97.9 % | 100 % ¹ |
 
-Statistical errors of the FWHM are 0.07–0.15 % (absolute). ¹ The only time gammaspec loses
+Statistical errors of the FWHM are 0.07–0.15 % (absolute). ¹ The only time the app loses
 is the 1,500-sample start-up of each capture, which is excluded from real time too. Pile-up
 is resolved, not rejected, so the live time is not reduced.
 
@@ -79,7 +79,7 @@ is resolved, not rejected, so the live time is not reduced.
   0.4 keV, i.e. noise. Every pulse sitting on the undershoot of an earlier one is measured
   low, so the peaks are 97–99 keV wide. Pile-up merges pulses or splits them into several
   maxima. This is what "no transformation" costs: **+26 % FWHM at 1173 keV and +23 % at
-  1332 keV** relative to gammaspec, and almost twice the valley-to-peak ratio.
+  1332 keV** relative to this app, and almost twice the valley-to-peak ratio.
 * **Shaping (analog):** filtering the noise and cancelling the decay removes most of that. A
   1 µs CR-RC⁴ already reaches 6.55 % at 1332 keV.
 * **Pile-up rejection** improves the valley slightly (0.290 → 0.279). It loses 3 % of the
@@ -87,9 +87,9 @@ is resolved, not rejected, so the live time is not reduced.
   rejected pulses cannot recover this exactly, as is well known for analog PUR.
 * **Shorter shaping (0.5 µs)** is better on this data, because pile-up dominates over
   electronic noise at 4,500 /s.
-* **gammaspec vs the best analog setting (0.5 µs, PUR):**
+* **Gamma Spectrometry App vs the best analog setting (0.5 µs, PUR):**
 
-  | | Best analog | gammaspec | Change |
+  | | Best analog | Gamma Spectrometry App | Change |
   |---|---|---|---|
   | FWHM 1173 keV | 81.6 keV | 76.8 keV | −6 % |
   | FWHM 1332 keV | 82.7 keV | 80.5 keV | −3 % |
@@ -98,7 +98,7 @@ is resolved, not rejected, so the live time is not reduced.
   | Threshold | ≈ 44 keV | ≈ 4–6 keV | about 10× lower |
   | Pulses lost | none | none | same peak rates within errors |
 
-  gammaspec's detection threshold is 1.53 mV ≈ 6 keV (see [detection.md](detection.md)).
+  The app's detection threshold is 1.53 mV ≈ 6 keV (see [detection.md](detection.md)).
   The 1st-percentile metric gives 3.6 keV because of noise near the threshold. The low
   threshold comes from the optimal filter. The rest comes from fitting the template to all
   samples of the pulse (not one peak sample) and from resolving pile-up instead of rejecting
@@ -110,8 +110,8 @@ is resolved, not rejected, so the live time is not reduced.
 |---|---|---|
 | Typical 3″×3″ NaI(Tl) + preamp/amp/MCA (literature) | ≈ 7 % (6.5–8 %) | ≈ 4.8–5.5 % |
 | This detector, emulated analog chain (1 µs / 0.5 µs) | — (no ¹³⁷Cs line) | 6.5 % / 6.2 % |
-| This detector, gammaspec (first 100 / full run, good events) | — | 6.05 % / 6.05 % |
-| This detector, gammaspec, isolated pulses only (full run) | — | 6.03 % |
+| This detector, this app (first 100 / full run, good events) | — | 6.05 % / 6.05 % |
+| This detector, this app, isolated pulses only (full run) | — | 6.03 % |
 
 Sources: an NaI(Tl) teaching-lab manual (KFUPM), Berkeley Nucleonics' RIID detector notes,
 the UC Davis gamma spectroscopy guide and an Edinburgh lab report. These give ~7 % at 662 keV
@@ -124,7 +124,7 @@ as the standard figure for good 3″×3″ crystals, which scales as about 1/√
   detector is 0.5–1 % (absolute) worse than a good 3″×3″ crystal, **with any processing**:
   the emulated analog chain sees the same limitation.
 * The fair comparison is therefore the one in the table above: **the same pulses through
-  the analog chain and through gammaspec.** There, gammaspec is 3–6 % narrower in FWHM, has
+  the analog chain and through this app.** There, this app is 3–6 % narrower in FWHM, has
   10 % better peak separation and a ~10× lower threshold, and it loses no pulses to pile-up
   rejection.
 * The emulated analog chain is an **optimistic** analog chain. It adds no electronic noise of
@@ -133,8 +133,8 @@ as the standard figure for good 3″×3″ crystals, which scales as about 1/√
 
 ## Caveats
 
-* The gammaspec FWHM here (6.54 / 6.05 %) comes from the benchmark's fit (2 keV bins,
-  1040–1440 keV), applied identically to every chain. `gammaspec spectrum` uses 5 keV bins
+* This app's FWHM here (6.54 / 6.05 %) comes from the benchmark's fit (2 keV bins,
+  1040–1440 keV), applied identically to every chain. `gamma-spectrometry spectrum` uses 5 keV bins
   and gives 6.56 / 6.04 % for the same events. The difference is within the errors.
 * **Absolute FWHM values are model-dependent.** The fit uses two Gaussians on a linear
   background. On simulated ⁶⁰Co spectra with known widths, this underestimates the FWHM by

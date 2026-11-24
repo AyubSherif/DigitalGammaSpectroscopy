@@ -7,7 +7,7 @@ Layout of a store file::
     /index/created    str      ISO creation timestamp from the file header
     /index/file_number int32   number in the original file name
     /index/source     str      original file path
-    attrs: lsb_volts, dt_s, n_samples, gammaspec_version, ...
+    attrs: lsb_volts, dt_s, n_samples, app_version, ...
 
 Rows are written in chronological order.  Codes are lossless; volts = codes * lsb_volts.
 """
@@ -74,7 +74,7 @@ def convert(
         idx.create_dataset("source", data=[str(h.path) for h in headers], dtype=_STR)
         f.attrs.update(
             lsb_volts=lsb, dt_s=dt_s, n_samples=n_samples, sample_rate_hz=1.0 / dt_s,
-            gammaspec_version=__version__, source_dir=str(headers[0].path.parent),
+            app_version=__version__, source_dir=str(headers[0].path.parent),
         )
         jobs = [(str(h.path), lsb) for h in headers]
         if workers == 1:
@@ -122,7 +122,7 @@ def write_store(out_path, codes_iter, n_captures: int, n_samples: int, dt_s: flo
         idx.create_dataset("file_number", data=np.arange(n_captures, dtype=np.int32))
         idx.create_dataset("source", data=[source] * n_captures, dtype=_STR)
         f.attrs.update(lsb_volts=lsb, dt_s=dt_s, n_samples=n_samples, sample_rate_hz=1.0 / dt_s,
-                       gammaspec_version=__version__, source_dir=source)
+                       app_version=__version__, source_dir=source)
     os.replace(tmp_path, out_path)
     return out_path
 

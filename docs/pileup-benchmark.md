@@ -6,8 +6,8 @@ methods from Mohammadian-Behbahani & Saramad (2020), *A comparison study of the 
 correction algorithms* (NIM A 951, 163013), on our data, plus refinements suggested by
 the results. Decision: [ADR-0008](adr/0008-pileup-weighted-least-squares.md).
 
-Code: `gammaspec/pileup.py` (methods), `gammaspec/pileup_eval.py` (benchmark).
-Run: `gammaspec evaluate-pileup STORE TEMPLATE EVENTS OUT_DIR`.
+Code: `gamma_spectrometry/pileup.py` (methods), `gamma_spectrometry/pileup_eval.py` (benchmark).
+Run: `gamma-spectrometry evaluate-pileup STORE TEMPLATE EVENTS OUT_DIR`.
 
 ## Methods
 

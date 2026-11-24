@@ -3,7 +3,7 @@
 The pile-up solver gives every pulse in a pile-up cluster its own energy, and finds pulses
 the detector merged. It implements the method chosen in the
 [benchmark](pileup-benchmark.md) ([ADR-0008](adr/0008-pileup-weighted-least-squares.md)).
-Code: `gammaspec/solver.py`, called from `Pipeline._solve_clusters` (`gammaspec/pipeline.py`).
+Code: `gamma_spectrometry/solver.py`, called from `Pipeline._solve_clusters` (`gamma_spectrometry/pipeline.py`).
 
 ```text
 detected events ─► clusters ─► isolated: template fit (fast)
@@ -54,7 +54,7 @@ Two pulses one sample (0.56 µs) apart are inherently hard to separate.
 
 ## Results (first 100 captures of each run)
 
-`gammaspec report EVENTS.h5`:
+`gamma-spectrometry report EVENTS.h5`:
 
 | ⁶⁰Co run | Events | Centres (V) | Shift vs isolated | FWHM 1173 / 1332 keV |
 |---|---|---|---|---|
@@ -90,7 +90,7 @@ the pipeline ran at only 0.4× real time.
 
 ## Switching it off
 
-`gammaspec process ... --no-pileup-solver` (or `--no-residual-search` to keep the fit but
+`gamma-spectrometry process ... --no-pileup-solver` (or `--no-residual-search` to keep the fit but
 not the search); `SolverConfig(enabled=False)` in code. The solver needs a restored
 baseline and is disabled automatically (with a warning) if pole-zero correction or the
 baseline tracker is off.

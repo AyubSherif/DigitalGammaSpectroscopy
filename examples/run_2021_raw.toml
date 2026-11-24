@@ -1,7 +1,7 @@
 # The whole chain on the 2021 data, starting from the raw ASCII captures.
-#   gammaspec config check examples/run_2021_raw.toml
-#   gammaspec run examples/run_2021_raw.toml
-# Every setting not given here keeps its default (gammaspec config init shows them all).
+#   gamma-spectrometry config check examples/run_2021_raw.toml
+#   gamma-spectrometry run examples/run_2021_raw.toml
+# Every setting not given here keeps its default (gamma-spectrometry config init shows them all).
 
 output = "data/runs/2021_raw"
 

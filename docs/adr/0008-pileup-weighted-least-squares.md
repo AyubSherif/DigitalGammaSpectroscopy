@@ -1,6 +1,6 @@
 # ADR-0008: Resolve pile-up with weighted least squares and sub-sample timing
 
-* **Status:** Accepted; implemented in `gammaspec/solver.py` (step 6, [pileup-solver.md](../pileup-solver.md))
+* **Status:** Accepted; implemented in `gamma_spectrometry/solver.py` (step 6, [pileup-solver.md](../pileup-solver.md))
 * **Date:** 2026-11-24
 
 ## Context

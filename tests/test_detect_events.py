@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from gammaspec.detect import (DetectConfig, Detector, apply_filter, local_sigma, negative_side_sigma,
+from gamma_spectrometry.detect import (DetectConfig, Detector, apply_filter, local_sigma, negative_side_sigma,
                               noise_autocovariance, optimal_kernel, sharpen, successive_cancellation)
-from gammaspec.events import (FLAG_PILEUP, FLAG_WARMUP, EventFile, EventWriter, EVENT_DTYPE,
+from gamma_spectrometry.events import (FLAG_PILEUP, FLAG_WARMUP, EventFile, EventWriter, EVENT_DTYPE,
                               CAPTURE_DTYPE)
-from gammaspec.template import PulseTemplate
+from gamma_spectrometry.template import PulseTemplate
 
 
 def pz_like_template():

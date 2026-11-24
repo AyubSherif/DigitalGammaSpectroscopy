@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from gammaspec import config as C
-from gammaspec.events import EventFile
-from gammaspec.pipeline import PipelineConfig, run
-from gammaspec.simulate import SimConfig, Simulator, analytic_template, simulate_store
-from gammaspec.sources import PipeSource, SimulationSource, StoreSource
-from gammaspec.stream import StreamConfig, StreamProcessor, check_stream_config, process_stream
+from gamma_spectrometry import config as C
+from gamma_spectrometry.events import EventFile
+from gamma_spectrometry.pipeline import PipelineConfig, run
+from gamma_spectrometry.simulate import SimConfig, Simulator, analytic_template, simulate_store
+from gamma_spectrometry.sources import PipeSource, SimulationSource, StoreSource
+from gamma_spectrometry.stream import StreamConfig, StreamProcessor, check_stream_config, process_stream
 
 SMALL = dict(frame=32768, pre=2048, post=1536, update_s=0)
 
@@ -116,7 +116,7 @@ def test_config_for_streamed_kinds(tmp_path):
 
 
 def test_runner_simulation_with_truth_and_reuse(tmp_path, capsys):
-    from gammaspec import runner
+    from gamma_spectrometry import runner
 
     sets = [f"output='{(tmp_path / 'out').as_posix()}'", "input.kind='simulation'", "simulation.duration_s=0.4",
             "simulation.background_duration_s=0", "spectrum.enabled=false", "workers=1", "stream.update_s=0",

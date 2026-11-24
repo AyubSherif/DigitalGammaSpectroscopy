@@ -13,7 +13,7 @@ C. **Real pile-up events.** The ⁶⁰Co pile-up clusters stored in an event fil
    by each method. The ⁶⁰Co peak positions and widths must match those the same method
    gives for isolated pulses.
 
-Run:  python -m gammaspec evaluate-pileup STORE TEMPLATE EVENTS OUT_DIR
+Run:  python -m gamma_spectrometry evaluate-pileup STORE TEMPLATE EVENTS OUT_DIR
 """
 
 from __future__ import annotations

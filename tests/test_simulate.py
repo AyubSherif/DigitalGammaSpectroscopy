@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
 
-from gammaspec.baseline import design_from_template
-from gammaspec.simulate import (SimConfig, Simulator, analytic_template, compare_to_truth,
+from gamma_spectrometry.baseline import design_from_template
+from gamma_spectrometry.simulate import (SimConfig, Simulator, analytic_template, compare_to_truth,
                                 klein_nishina_electron_cdf, load_truth, simulate_store)
-from gammaspec.store import CaptureStore
+from gamma_spectrometry.store import CaptureStore
 
 
 def test_analytic_template_peaks_at_zero_and_has_a_model():
@@ -59,7 +59,7 @@ def test_klein_nishina_ends_at_the_compton_edge():
 
 
 def test_store_and_truth_and_scoring(tmp_path):
-    from gammaspec.pipeline import PipelineConfig, run
+    from gamma_spectrometry.pipeline import PipelineConfig, run
 
     cfg = SimConfig(rate_cps=1500, background_cps=200)
     store, truth = simulate_store(tmp_path / "s.h5", cfg, n_captures=3, n_samples=120_000, gap_s=0.01)

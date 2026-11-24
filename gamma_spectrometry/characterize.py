@@ -1,6 +1,6 @@
 """Detector characterisation: pulse template, analytic pulse model, noise, stability, raw spectrum.
 
-Run from the command line:  python -m gammaspec characterize STORE.h5 OUT_DIR
+Run from the command line:  python -m gamma_spectrometry characterize STORE.h5 OUT_DIR
 Outputs (in OUT_DIR): template.h5, noise.h5, summary.json and diagnostic PNGs.
 """
 

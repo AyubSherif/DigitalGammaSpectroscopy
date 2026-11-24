@@ -20,3 +20,6 @@ __pycache__/
 # Claude Code local settings
 .claude/settings.local.json
 *.egg-info/
+
+# outputs of runs (gamma-spectrometry run / app)
+results/

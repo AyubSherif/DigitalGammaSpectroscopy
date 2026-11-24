@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from gammaspec.noise import noise_spectrum, pulse_free_windows
-from gammaspec.signal import find_pulses, isolated, noise_sigma, pulse_free_mask, robust_sigma
-from gammaspec.template import (PulseTemplate, build_template, extract_windows, fit_multiexp,
+from gamma_spectrometry.noise import noise_spectrum, pulse_free_windows
+from gamma_spectrometry.signal import find_pulses, isolated, noise_sigma, pulse_free_mask, robust_sigma
+from gamma_spectrometry.template import (PulseTemplate, build_template, extract_windows, fit_multiexp,
                                 fit_pulses, multiexp_model)
 
 # A pulse shape like the real detector's (samples): fast rise, 7.4-sample decay, small undershoot
@@ -70,7 +70,7 @@ def test_build_template_and_fit_recover_truth():
 
 
 def test_phase_equalisation_removes_warp():
-    from gammaspec.template import equalize_phase
+    from gamma_spectrometry.template import equalize_phase
     rng = np.random.default_rng(0)
     true = rng.uniform(-0.5, 0.5, 5000)
     warped = true + 0.04 * np.sin(2 * np.pi * true)          # phase-dependent bias

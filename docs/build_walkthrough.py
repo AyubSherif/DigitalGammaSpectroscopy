@@ -26,7 +26,7 @@ def code(s):
 
 # =============================================================================================
 md(r"""
-# gammaspec walkthrough: every function, in the order it is called
+# Gamma Spectrometry App walkthrough: every function, in the order it is called
 
 This notebook runs the pipeline step by step on the real 2021 NaI(Tl) data and shows, for
 each function, **what goes in, what comes out, and how it works** (including the maths).
@@ -42,7 +42,7 @@ The order follows the data:
 | D | 4. Detection and events | optimal filter → successive cancellation → event list |
 | E | 5–6. Pile-up resolution | TM, HYPER and least-squares fits on a real cluster; the pile-up solver in the pipeline |
 | G | 7. Calibration and background subtraction | keV axis for each run, gain matching, net spectrum |
-| H | Benchmark | the same pulses through a naive `find_peaks` count, an emulated analog chain and gammaspec |
+| H | Benchmark | the same pulses through a naive `find_peaks` count, an emulated analog chain and this app |
 | I | 9. Configuration | one run file selects input, stages and parameters; the runner executes it |
 | J | 10. Simulation and streaming | a synthetic signal with known truth; continuous input in overlapping frames; live spectrum |
 | K | 11. The app | the browser UI: a front end for the run file |
@@ -57,9 +57,9 @@ voltages are in volts; the raw pulses are negative and are flipped to positive e
 code(r"""
 import numpy as np, matplotlib.pyplot as plt, json, tempfile
 from pathlib import Path
-import gammaspec
-from gammaspec import rawio, store, signal, template, noise, interference, baseline, preprocess, detect, events, pipeline, spectrum
-from gammaspec import plotting as P
+import gamma_spectrometry
+from gamma_spectrometry import rawio, store, signal, template, noise, interference, baseline, preprocess, detect, events, pipeline, spectrum
+from gamma_spectrometry import plotting as P
 %matplotlib inline
 np.set_printoptions(precision=5, suppress=False, linewidth=110, threshold=24, edgeitems=4)
 ROOT = Path.cwd().parent if Path.cwd().name == "docs" else Path.cwd()
@@ -69,7 +69,7 @@ BKG_STORE = ROOT / "data/background.h5"
 TEMPLATE = ROOT / "data/characterization/background/template.h5"
 TMP = Path(tempfile.mkdtemp())
 FS = 1.8e6
-print("gammaspec", gammaspec.__version__)
+print("Gamma Spectrometry App", gamma_spectrometry.__version__)
 """)
 
 # =============================================================================================
@@ -93,19 +93,19 @@ with **analog electronics**:
 * a **multichannel analyser (MCA)** holds the peak of each bump, digitises that one value,
   and adds one count to the matching channel.
 
-**gammaspec** keeps the detector, the photomultiplier (PMT) and the preamplifier, then
+The **Gamma Spectrometry App** keeps the detector, the photomultiplier (PMT) and the preamplifier, then
 digitises the preamplifier output directly with a fast ADC. Everything the shaping
 amplifier and MCA did, and more, happens in software on a PC.
 """)
 code(r"""
-from gammaspec import simulate, sources, stream
+from gamma_spectrometry import simulate, sources, stream
 import matplotlib.patches as mpatches
 fig, ax = plt.subplots(figsize=(11, 3.3))
 ax.set_xlim(0, 12.6); ax.set_ylim(0, 3.3); ax.axis("off")
 def chain(y, boxes, colors):
     x = 0.15
     for i, (label, col) in enumerate(zip(boxes, colors)):
-        w = 2.55 if "gammaspec" in label else 1.55
+        w = 2.55 if "PC software" in label else 1.55
         ax.add_patch(mpatches.FancyBboxPatch((x, y), w, 0.8, boxstyle="round,pad=0.03", fc=col, ec="none", alpha=0.9))
         ax.text(x + w / 2, y + 0.4, label, ha="center", va="center", fontsize=8.5, color="white" if col != "#e8e6df" else "#333")
         if i < len(boxes) - 1:
@@ -115,14 +115,14 @@ grey, an, dig = "#e8e6df", P.SERIES[1], P.SERIES[0]
 ax.text(0.15, 3.05, "Analog chain (shaping amplifier + MCA)", fontsize=10, fontweight="bold", color=an)
 chain(2.0, ["NaI(Tl)\ncrystal", "PMT", "preamplifier", "shaping\namplifier", "peak-hold ADC\n+ MCA", "spectrum\n(fixed)"],
       [grey, grey, grey, an, an, an])
-ax.text(0.15, 1.25, "This software (fast ADC + gammaspec on a PC)", fontsize=10, fontweight="bold", color=dig)
-chain(0.2, ["NaI(Tl)\ncrystal", "PMT", "preamplifier", "fast ADC\n(1.8 MS/s)", "PC: gammaspec\n(clean, detect, pile-up,\ncalibrate, subtract)", "spectrum\n+ every pulse"],
+ax.text(0.15, 1.25, "This software (fast ADC + Gamma Spectrometry App on a PC)", fontsize=10, fontweight="bold", color=dig)
+chain(0.2, ["NaI(Tl)\ncrystal", "PMT", "preamplifier", "fast ADC\n(1.8 MS/s)", "PC software\n(clean, detect, pile-up,\ncalibrate, subtract)", "spectrum\n+ every pulse"],
       [grey, grey, grey, dig, dig, dig])
 plt.show()
 """)
 
 md(r"""
-| | Analog shaping amplifier + MCA | Digitiser + gammaspec |
+| | Analog shaping amplifier + MCA | Digitiser + Gamma Spectrometry App |
 |---|---|---|
 | Hardware after the preamplifier | shaping amplifier, MCA (separate instruments) | one ADC board and a PC |
 | What is kept | one number per pulse (its channel) | the whole waveform, or every pulse with its time |
@@ -387,18 +387,18 @@ md(r"""
 ## 0.9 The result: a sharper spectrum
 
 Here are the same 20 captures counted two ways. The *naive* count takes the highest sample
-of every bump in the raw signal, with no transformation. *gammaspec* uses everything
+of every bump in the raw signal, with no transformation. *This app* uses everything
 above. Both are calibrated to keV the same way.
 """)
 code(r"""
-from gammaspec import benchmark, calibration, analysis
+from gamma_spectrometry import benchmark, calibration, analysis
 caps20 = range(20)
 naive_ = benchmark.naive_chain(SRC_STORE, caps20)
 gs_ = benchmark.pipeline_chain(ROOT / "data/events/source_first100.h5", caps20)
 fig, ax = P.figure(1, 2, height_per_row=3.2)
 edges = np.arange(0, 2800, 8.0)
 top = 0
-for ch_, col, lab in ((naive_, P.SERIES[1], "before: naive count of the raw signal"), (gs_, P.SERIES[0], "after: gammaspec")):
+for ch_, col, lab in ((naive_, P.SERIES[1], "before: naive count of the raw signal"), (gs_, P.SERIES[0], "after: Gamma Spectrometry App")):
     m_ = benchmark.metrics(ch_)
     e_ = m_.pop("_energies")
     h_, _ = np.histogram(e_, edges)
@@ -470,10 +470,10 @@ sl = slice(b0, b0 + 600)
 tus = np.arange(sl.stop - sl.start) / FS * 1e6
 fig, ax = P.figure(1, 1, height_per_row=3.0)
 ax[0,0].plot(tus, sh_[sl] / sh_[sl].max(), color=P.SERIES[1], lw=1.1, label="analog shaping amplifier (1 µs CR-RC⁴)")
-ax[0,0].plot(tus, y_f[sl] / y_f[sl].max() - 1.2, color=P.SERIES[2], lw=1.1, label="gammaspec optimal filter")
-ax[0,0].plot((d_.index[inw] - sl.start) / FS * 1e6, np.full(inw.sum(), 0.08) - 1.2, "|", color="#333", ms=10, label="pulses found by gammaspec")
+ax[0,0].plot(tus, y_f[sl] / y_f[sl].max() - 1.2, color=P.SERIES[2], lw=1.1, label="this app's optimal filter")
+ax[0,0].plot((d_.index[inw] - sl.start) / FS * 1e6, np.full(inw.sum(), 0.08) - 1.2, "|", color="#333", ms=10, label="pulses found by Gamma Spectrometry App")
 ax[0,0].set_yticks([]); ax[0,0].set_xlabel("µs"); ax[0,0].legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=3, frameon=False)
-ax[0,0].set_title("same signal: shaped bumps (analog) vs optimal-filter peaks (gammaspec)"); plt.show()
+ax[0,0].set_title("same signal: shaped bumps (analog) vs optimal-filter peaks (Gamma Spectrometry App)"); plt.show()
 """)
 
 md(r"""
@@ -524,7 +524,7 @@ fig, ax = P.figure(1, 2, height_per_row=3.0)
 edges = np.arange(0, 2800, 10.0)
 ax[0,0].hist(truth_["energy_kev"], edges, histtype="step", color="#333", lw=1.2, label="truth (what the simulator made)")
 cal_sim = calibration.calibrate(found_["amplitude"], "source")
-ax[0,0].hist(cal_sim.energy(found_["amplitude"]), edges, histtype="step", color=P.SERIES[0], lw=1.0, label="measured by gammaspec")
+ax[0,0].hist(cal_sim.energy(found_["amplitude"]), edges, histtype="step", color=P.SERIES[0], lw=1.0, label="measured by Gamma Spectrometry App")
 ax[0,0].set_yscale("log"); ax[0,0].set_xlabel("energy (keV)"); ax[0,0].legend(fontsize=8); ax[0,0].set_title("3 s of simulated ⁶⁰Co + room background")
 eff_ = [e_ for e_ in chk_["efficiency_by_energy"] if e_["efficiency"] is not None]
 ax[0,1].bar([f"{e_['energy_kev'][0]}–{e_['energy_kev'][1]}" for e_ in eff_], [100 * e_["efficiency"] for e_ in eff_], color=P.SERIES[2])
@@ -1294,7 +1294,7 @@ md(r"""
 # Part E: Pile-up resolution (step 5)
 
 A pile-up cluster is a stretch of clean signal with two or more pulses closer than 60
-samples. Every method in `gammaspec.pileup` takes the cluster waveform **y** (baseline 0),
+samples. Every method in `gamma_spectrometry.pileup` takes the cluster waveform **y** (baseline 0),
 the detected peak positions **pos** (relative to the start of y) and a `PileupContext`, and
 returns one amplitude per pulse. We use a real ⁶⁰Co pile-up cluster from the event file.
 
@@ -1326,7 +1326,7 @@ $s'(t) \approx [s(t+h) - s(t-h)]/2h$ with h = 1/16 sample. The noise autocovaria
 measured from capture 1's pulse-free samples (as in D2), now with 4096 lags.
 """)
 code(r"""
-from gammaspec import pileup
+from gamma_spectrometry import pileup
 r_long = detect.noise_autocovariance(y1, freeD, 4096)
 ctx = pileup.PileupContext(Tp, detect.decay_constant(Tp), r_long)
 print("tau =", round(ctx.tau, 3), " model_error eps =", ctx.model_error, " noise variance r[0] =", r_long[0])
@@ -1509,7 +1509,7 @@ md(r"""
 Below: a real cluster where the detector saw **one** pulse but the solver found two.
 """)
 code(r"""
-from gammaspec import solver
+from gamma_spectrometry import solver
 ev_s = efull.events
 added_ev = ev_s[(ev_s["flags"] & events.FLAG_FIT_ADDED) != 0]
 pick = added_ev[(added_ev["amplitude"] > 0.03)][0]
@@ -1572,7 +1572,7 @@ md(r"""
 # Part G: Energy calibration and background subtraction (step 7)
 
 Input: the good events of the source run and of the background run (event files from
-`gammaspec process`). Output: both on a keV axis, live-time-normalised spectra, and the
+`gamma-spectrometry process`). Output: both on a keV axis, live-time-normalised spectra, and the
 net spectrum.
 
 ## G1. `calibration.anchor_gain(amplitudes, kind)`
@@ -1585,7 +1585,7 @@ from swamping the search (this matters for the naive chain of Part H).
 * **background:** the strongest peak is ⁴⁰K: gain = 1460.8 / A.
 """)
 code(r"""
-from gammaspec import calibration, analysis
+from gamma_spectrometry import calibration, analysis
 src_good = efull.good()
 bkg_good = events.EventFile(ROOT / "data/events/background.h5").good()
 g_src = calibration.anchor_gain(src_good["amplitude"], "source")
@@ -1701,7 +1701,7 @@ md(r"""
 ## G8. `analysis.analyze(source, out_dir, background)` (the step-7 driver)
 Calibrate both runs, build and subtract the spectra, fit the lines, measure the gain drift,
 and write `calibration_*.json`, `spectrum.csv`, `spectrum_summary.json` and the plots. CLI:
-`gammaspec spectrum SOURCE_EVENTS OUT_DIR --background BACKGROUND_EVENTS`. Results:
+`gamma-spectrometry spectrum SOURCE_EVENTS OUT_DIR --background BACKGROUND_EVENTS`. Results:
 `docs/spectrum.md`.
 """)
 code(r"""
@@ -1717,7 +1717,7 @@ ax[0,0].set_yscale("log"); ax[0,0].set_xlabel("energy (keV)"); ax[0,0].set_ylabe
 # =============================================================================================
 md(r"""
 ---
-# Part H: Benchmark (naive count vs analog chain vs gammaspec)
+# Part H: Benchmark (naive count vs analog chain vs Gamma Spectrometry App)
 
 The same captures through three chains; each is calibrated by `calibration.calibrate`
 (Part G) and measured with the same metrics. Results on 100 captures: `docs/benchmark.md`.
@@ -1730,7 +1730,7 @@ height is the highest sample. Pulses on an undershoot are measured low, noise ma
 as pulses, and pile-up merges or splits pulses.
 """)
 code(r"""
-from gammaspec import benchmark
+from gamma_spectrometry import benchmark
 caps5 = range(5)
 naive = benchmark.naive_chain(SRC_STORE, caps5)
 print(f"{naive.n_recorded} 'pulses' in {naive.live_time_s:.2f} s = {naive.n_recorded/naive.live_time_s:.0f} /s;  smallest heights (mV):", np.round(np.sort(naive.amplitudes)[:5]*1e3, 2))
@@ -1791,7 +1791,7 @@ returns, among others:
 * the low-energy threshold (1st percentile of recorded energies below 300 keV).
 
 `run_benchmark` does this for all five chains and writes the summary and plot (CLI
-`gammaspec benchmark`).
+`gamma-spectrometry benchmark`).
 """)
 code(r"""
 pipe = benchmark.pipeline_chain(ROOT / "data/events/source_first100.h5", caps5)
@@ -1816,7 +1816,7 @@ wrong types, invalid choices (`CHOICES`) and out-of-range numbers (`POSITIVE`, �
 collected and raised together as a `ConfigError`.
 """)
 code(r"""
-from gammaspec import config as C
+from gamma_spectrometry import config as C
 cfg = C.from_dict({"input": {"kind": "store", "source": str(SRC_STORE)}, "pipeline": {"detect": {"threshold": 6}}})
 print(type(cfg.pipeline.detect).__name__, "threshold =", cfg.pipeline.detect.threshold, "| method (default) =", cfg.pipeline.detect.method)
 try:
@@ -1858,7 +1858,7 @@ stamp (`<file>.stamp.json`: its inputs and settings). A rerun reuses an output w
 is unchanged, so after changing one setting only the affected steps run.
 """)
 code(r"""
-from gammaspec import runner
+from gamma_spectrometry import runner
 sets_ = [f"output='{(TMP / 'run').as_posix()}'", f"input.source='{SRC_STORE.as_posix()}'", f"template.path='{TEMPLATE.as_posix()}'",
          "input.limit=2", "spectrum.enabled=false", "workers=1"]
 r_ = runner.run(C.load(None, sets_), verbose=False)
@@ -1893,7 +1893,7 @@ Events are generated in fixed 65,536-sample blocks, so the waveform does not dep
 it is read.
 """)
 code(r"""
-from gammaspec import simulate, sources, stream
+from gamma_spectrometry import simulate, sources, stream
 sim = simulate.Simulator(simulate.SimConfig(seed=3))
 x_sim = sim.read(20000)
 T_ = sim.truth_table()
@@ -1958,7 +1958,7 @@ md(r"""
 `process_stream` feeds a source to the processor and writes the event file. Every
 `update_s` seconds it prints a status line, recalibrates the live spectrum (once it has
 20,000 good events, and again at every doubling) and writes `live/<run>/live_spectrum.json`
-(plus a PNG every `png_s`). A UI or `gammaspec stream --show` (`liveplot.LivePlot`) draws it.
+(plus a PNG every `png_s`). A UI or `gamma-spectrometry stream --show` (`liveplot.LivePlot`) draws it.
 """)
 code(r"""
 simulate.analytic_template().save(TMP / "t_sim.h5")
@@ -1992,7 +1992,7 @@ md(r"""
 ---
 # Part K: The app (step 11)
 
-`gammaspec app` opens a page in the browser (Streamlit, `gammaspec/app.py`). It is a front
+`gamma-spectrometry app` opens a page in the browser (Streamlit, `gamma_spectrometry/app.py`). It is a front
 end for the run file of Part I:
 * **1 · Input:** where the signal comes from: raw files, a prepared store, a replay, the
   simulator, or a live file / FIFO;
@@ -2011,7 +2011,7 @@ disagree. Editing the TOML text replaces the configuration and resets the widget
 (`_replace_cfg`).
 
 ## K2. `app.start_run(cfg)`, `progress_view()`, `stop_run()`
-**Run** saves `<output>/ui_run.toml` and starts `python -m gammaspec run` on it as a separate
+**Run** saves `<output>/ui_run.toml` and starts `python -m gamma_spectrometry run` on it as a separate
 process. The page stays responsive, and **Stop** ends the process and its workers. Every
 2 s, `progress_view` redraws the log and the live spectrum from
 `live/<run>/live_spectrum.json`.
@@ -2022,12 +2022,12 @@ shorten the run, and look at the run file the page would start.
 code(r"""
 import logging; logging.getLogger("streamlit").setLevel(logging.ERROR)   # "bare mode" notices
 from streamlit.testing.v1 import AppTest
-at = AppTest.from_file(str(ROOT / "gammaspec" / "app.py"), default_timeout=60); at.run()
+at = AppTest.from_file(str(ROOT / "gamma_spectrometry" / "app.py"), default_timeout=60); at.run()
 print("default page, errors shown:", [e.value.splitlines()[1].strip() for e in at.error])
 at.radio(key="w.input.kind").set_value("simulation").run()
 at.number_input(key="w.sim.dur").set_value(5.0).run()
 at.checkbox(key="w.pp.line").set_value(False).run()
-from gammaspec import config as C
+from gamma_spectrometry import config as C
 txt = C.dumps(at.session_state["cfg"]).splitlines()
 print("errors now:", [e.value for e in at.error], "| Run enabled:", not [b for b in at.button if b.label == "Run"][0].disabled)
 print("\n".join(l for l in txt if l.startswith(("kind", "duration_s", "line_removal"))))
@@ -2047,7 +2047,7 @@ after isolated pulses, and Gaussian fits of the ⁶⁰Co peaks with free / fixed
 split into pulses on an earlier pulse's tail vs clean ones (`docs/baseline-restoration.md`).
 """)
 code(r"""
-from gammaspec import restoration
+from gamma_spectrometry import restoration
 for name, cfg in restoration.default_configs().items():
     print(f"{name:30s} -> label: {cfg.label()}")
 """)
@@ -2064,7 +2064,7 @@ md(r"""
   two **distinct** detections are required.
 """)
 code(r"""
-from gammaspec import detection_eval
+from gamma_spectrometry import detection_eval
 real_n, pure_n, _ = detection_eval.noise_streams(SRC_STORE, Tp, pz, [0, 50])
 ns_r = noise.noise_spectrum(real_n[: real_n.size // 512 * 512].reshape(-1, 512), FS)
 ns_p = noise.noise_spectrum(pure_n[: pure_n.size // 512 * 512].reshape(-1, 512), FS)
@@ -2093,7 +2093,7 @@ md(r"""
 A small version of test B:
 """)
 code(r"""
-from gammaspec import pileup_eval
+from gamma_spectrometry import pileup_eval
 Wr = pileup_eval.real_isolated_pulses(SRC_STORE, Tp, pz, [3, 4])
 print("real isolated pulses:", Wr.shape)
 Bres, singles = pileup_eval.test_real_pairs(Wr, ctx, np.random.default_rng(0), n_per_d=60)
@@ -2103,18 +2103,16 @@ for d_ in ("4", "10"):
 
 nb = nbf.v4.new_notebook()
 nb.cells = cells
-nb.metadata["kernelspec"] = {"name": "gammaspec", "display_name": "gammaspec (.venv)", "language": "python"}
+nb.metadata["kernelspec"] = {"name": "gamma-spectrometry", "display_name": "Gamma Spectrometry App (.venv)", "language": "python"}
 out = HERE / "walkthrough.ipynb"
-NotebookClient(nb, timeout=900, kernel_name="gammaspec", resources={"metadata": {"path": str(HERE)}}).execute()
+NotebookClient(nb, timeout=900, kernel_name="gamma-spectrometry", resources={"metadata": {"path": str(HERE)}}).execute()
 # Streamlit's "bare mode" notices (Part K) are noise in a notebook
 for c in nb.cells:
     if c.cell_type == "code":
         for o in c.outputs:
             if "text" in o and "ScriptRunContext" in o["text"]:
-                o["text"] = "
-".join(l for l in o["text"].splitlines() if "ScriptRunContext" not in l and "bare mode" not in l).strip("
-") + "
-"
+                kept = [l for l in o["text"].splitlines() if "ScriptRunContext" not in l and "bare mode" not in l]
+                o["text"] = "\n".join(kept).strip("\n") + "\n"
         c.outputs = [o for o in c.outputs if not ("text" in o and not o["text"].strip())]
 nbf.write(nb, out)
 print("wrote", out)

@@ -1,8 +1,8 @@
 """Run configuration: one TOML file selects the input, the stages and every parameter (ADR-0011).
 
-    gammaspec config init run.toml          # write the defaults, with a comment on each setting
-    gammaspec config check run.toml         # validate; print warnings and the effective config
-    gammaspec run run.toml --set pipeline.detect.threshold=6
+    gamma-spectrometry config init run.toml          # write the defaults, with a comment on each setting
+    gamma-spectrometry config check run.toml         # validate; print warnings and the effective config
+    gamma-spectrometry run run.toml --set pipeline.detect.threshold=6
 
 The file mirrors the dataclasses of the code: ``[pipeline.preprocess]`` is
 ``PreprocessConfig``, ``[pipeline.detect]`` is ``DetectConfig``, and so on. Keys left out
@@ -322,7 +322,7 @@ def dumps(cfg, comments: bool = True) -> str:
     """The config as TOML, one table per dataclass, with each field's code comment."""
     lines: list[str] = []
     if isinstance(cfg, RunConfig):
-        lines += ["# gammaspec run configuration (docs/configuration.md)", f"schema_version = {SCHEMA_VERSION}"]
+        lines += ["# gamma-spectrometry run configuration (docs/configuration.md)", f"schema_version = {SCHEMA_VERSION}"]
 
     def table(obj, name: str):
         notes = _comments(type(obj)) if comments else {}
@@ -417,7 +417,7 @@ def check(cfg: RunConfig, paths: bool = True) -> list[str]:
         warn.append("no background run: the spectrum is calibrated but not background-subtracted")
     if cfg.benchmark.enabled and i.kind in ("simulation", "pipe"):
         warn.append(f"benchmark needs a capture store; it is skipped for input.kind = '{i.kind}' "
-                    "(simulate a store with 'gammaspec simulate' and benchmark that)")
+                    "(simulate a store with 'gamma-spectrometry simulate' and benchmark that)")
     if sim and cfg.template.path:
         warn.append("template.path is used by the pipeline, while the simulator makes pulses with "
                     "simulation.signal.pulse_template: they differ unless both name the same file")

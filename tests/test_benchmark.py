@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from gammaspec.benchmark import shaping_amplifier
+from gamma_spectrometry.benchmark import shaping_amplifier
 
 DT = 1 / 1.8e6
 
