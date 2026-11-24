@@ -30,9 +30,16 @@ def robust_sigma(x: np.ndarray) -> float:
     return float(_MAD_TO_SIGMA * np.median(np.abs(x - np.median(x))))
 
 
-def noise_sigma(x: np.ndarray) -> float:
-    """White-noise sigma from first differences. Insensitive to pulses and slow baseline changes."""
-    return robust_sigma(np.diff(np.asarray(x, dtype=np.float64))) / np.sqrt(2.0)
+def noise_sigma(x: np.ndarray, max_samples: int = 1 << 17) -> float:
+    """White-noise sigma from first differences. Insensitive to pulses and slow baseline changes.
+
+    Uses at most ``max_samples`` (the central part): plenty for a robust estimate, and fast.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    if x.size > max_samples:
+        a = (x.size - max_samples) // 2
+        x = x[a: a + max_samples]
+    return robust_sigma(np.diff(x)) / np.sqrt(2.0)
 
 
 def edge_signal(x: np.ndarray, gap: int = 2, avg: int = 3) -> np.ndarray:
@@ -44,7 +51,8 @@ def edge_signal(x: np.ndarray, gap: int = 2, avg: int = 3) -> np.ndarray:
     x = np.asarray(x, dtype=np.float64)
     lag = gap + avg - 1
     d = np.zeros_like(x)
-    ref = sliding_window_view(x, avg).mean(axis=1)  # ref[i] = mean(x[i:i+avg])
+    cs = np.concatenate([[0.0], np.cumsum(x)])
+    ref = (cs[avg:] - cs[:-avg]) / avg               # ref[i] = mean(x[i:i+avg])
     d[lag:] = x[lag:] - ref[: x.size - lag]
     return d
 

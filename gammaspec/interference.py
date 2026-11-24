@@ -26,8 +26,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from functools import lru_cache
+
 import numpy as np
+import scipy.fft as sfft
 from scipy.ndimage import maximum_filter, median_filter
+
+
+@lru_cache(maxsize=4)
+def _hann(n: int) -> np.ndarray:
+    return np.hanning(n)
 
 
 @dataclass
@@ -52,7 +60,7 @@ def detect_lines(x: np.ndarray, free: np.ndarray, fs: float, cfg: LineRemovalCon
     """Frequencies (Hz) of narrow lines in the pulse-free part of ``x``, merged to block resolution."""
     n = x.size
     xm = np.where(free, x - x[free].mean(), 0.0)
-    P = np.abs(np.fft.rfft(xm * np.hanning(n))) ** 2
+    P = np.abs(sfft.rfft(xm * _hann(n), workers=-1)) ** 2
     f = np.fft.rfftfreq(n, 1.0 / fs)
     floor = median_filter(P, size=cfg.median_width, mode="nearest")
     ratio = P / np.maximum(floor, np.finfo(float).tiny)

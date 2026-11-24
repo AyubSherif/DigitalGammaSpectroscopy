@@ -95,13 +95,17 @@ class PoleZero:
 
     name = "pole_zero"
 
-    def __init__(self, design: PoleZeroDesign):
+    def __init__(self, design: PoleZeroDesign, initial_level: float = 0.0):
         self.design = design
+        self.initial_level = initial_level
         self._zi = None
 
     def process(self, x: np.ndarray) -> np.ndarray:
-        if self._zi is None:  # start "at rest" on the first sample's level
-            self._zi = lfilter_zi(self.design.b, self.design.a) * x[0]
+        # Start at rest on the input's mean level (0 after offset removal). Starting on the
+        # first sample instead would multiply that single noisy value by the filter's large
+        # DC gain and leave a slowly decaying offset.
+        if self._zi is None:
+            self._zi = lfilter_zi(self.design.b, self.design.a) * self.initial_level
         y, self._zi = lfilter(self.design.b, self.design.a, x, zi=self._zi)
         return y
 

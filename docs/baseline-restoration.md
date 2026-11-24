@@ -90,20 +90,20 @@ with a free baseline per pulse (`b free`) or with the baseline fixed at zero (`b
 | Configuration | Noise σ (mV) | Baseline before pulse: robust σ (mV) | Pulses > 5 mV off | Tail at +60 samples | FWHM 1173 / 1332 keV, b free | FWHM, b = 0 |
 |---|---|---|---|---|---|---|
 | raw | 1.69 | 2.14 | 21.9 % | −3.5 % | 6.58 / 5.91 % | 7.81 / 6.57 % |
-| lines | 0.50 | 2.15 | 21.9 % | −3.6 % | 6.58 / 5.92 % | 7.81 / 6.56 % |
-| tracker only | 1.68 | 0.77 | 1.7 % | −1.7 % | 6.58 / 5.96 % | 6.65 / 5.99 % |
-| pole-zero | 1.68 | 3.44 | 34.0 % | +0.3 % | 6.61 / 5.90 % | 8.02 / 6.82 % |
-| lines + pole-zero | 0.50 | 3.39 | 33.6 % | +0.2 % | 6.60 / 5.90 % | 8.01 / 6.90 % |
-| **lines + pole-zero + tracker** | **0.50** | **0.46** | **0.5 %** | **+0.2 %** | 6.59 / 5.89 % | **6.51 / 5.93 %** |
+| lines | 0.49 | 2.15 | 21.9 % | −3.6 % | 6.58 / 5.92 % | 7.81 / 6.56 % |
+| tracker only | 1.69 | 0.77 | 1.7 % | −1.7 % | 6.58 / 5.96 % | 6.65 / 5.99 % |
+| pole-zero | 1.68 | 2.68 | 21.6 % | +0.3 % | 6.60 / 5.89 % | 7.68 / 6.75 % |
+| lines + pole-zero | 0.49 | 2.68 | 21.6 % | +0.3 % | 6.59 / 5.89 % | 7.70 / 6.74 % |
+| **lines + pole-zero + tracker** | **0.49** | **0.45** | **0.4 %** | **+0.2 %** | 6.59 / 5.89 % | **6.50 / 5.93 %** |
 
-**Pulses on the tail of an earlier pulse** (60–300 samples after it; 43,470 pulses)
+**Pulses on the tail of an earlier pulse** (60–300 samples after it; 43,456 pulses)
 compared with clean pulses (more than 300 samples after):
 
 | Configuration, fit | Peak position, on tail vs clean | FWHM on tail (clean) |
 |---|---|---|
-| raw, b = 0 (like thresholding) | **−1.6 %** (0.3076 vs 0.3132 V) | **7.94 / 6.82 %** (6.62 / 5.96 %) |
-| raw, b free | −0.3 % | 6.64 / 5.99 % (6.57 / 5.82 %) |
-| **lines + pole-zero + tracker, b = 0** | **0.0 %** (0.3158 vs 0.3157 V) | **6.51 / 5.93 %** (6.47 / 5.84 %) |
+| raw, b = 0 (like thresholding) | **−1.6 %** (0.3076 vs 0.3132 V) | **7.94 / 6.82 %** (6.62 / 5.97 %) |
+| raw, b free | −0.3 % | 6.64 / 5.98 % (6.57 / 5.82 %) |
+| **lines + pole-zero + tracker, b = 0** | **0.0 %** (0.3158 vs 0.3157 V) | **6.50 / 5.93 %** (6.47 / 5.83 %) |
 
 ![baseline and tail](img/restoration_source_baseline_and_tail.png)
 
@@ -112,8 +112,8 @@ compared with clean pulses (more than 300 samples after):
 | Configuration | Noise σ (mV) | Baseline robust σ (mV) | FWHM ⁴⁰K, b free | FWHM, b = 0 |
 |---|---|---|---|---|
 | raw | 6.31 | 1.30 | 6.64 % | 6.93 % |
-| lines | 4.00 | 1.13 | 6.58 % | 6.66 % |
-| lines + pole-zero + tracker | 3.98 | 1.07 | 6.83 % | 6.59 % |
+| lines | 3.99 | 1.13 | 6.61 % | 6.65 % |
+| lines + pole-zero + tracker | 3.97 | 1.08 | 6.78 % | 6.60 % |
 
 In the noisy background captures, line removal leaves broadband noise (σ ≈ 4 mV) that
 can't be filtered without harming pulses. ⁴⁰K has few counts, so these FWHM values are
