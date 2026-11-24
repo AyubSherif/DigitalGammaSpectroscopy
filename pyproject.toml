@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gammaspec"
+version = "0.1.0"
+description = "Digital pulse processing for gamma-ray spectroscopy: baseline restoration, pile-up correction, spectra"
+requires-python = ">=3.11"
+dependencies = ["numpy>=2.0", "scipy>=1.13", "h5py>=3.10", "numba>=0.60", "matplotlib>=3.8"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+gammaspec = "gammaspec.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["gammaspec*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

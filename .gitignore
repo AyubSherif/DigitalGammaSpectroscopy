@@ -1,0 +1,22 @@
+# Raw / large data (never commit)
+ADC_raw_output/
+ADC_raw_output_background/
+Reactor_Data/
+ScienceDirect_articles/
+data/
+output/
+*.h5
+*.hdf5
+*.npy
+*.npz
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Claude Code local settings
+.claude/settings.local.json
+*.egg-info/
