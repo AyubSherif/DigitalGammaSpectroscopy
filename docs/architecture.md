@@ -33,7 +33,7 @@ Properties measured from the data, which drive the design (details and figures i
  raw captures ─►│ ingestion  │──►│ baseline │──►│ detection │──►│ pile-up  │──►│ spectrum │──►│ background │
                 │  (store)   │   │ restore  │   │ (events)  │   │ & energy │   │ & calib. │   │ subtraction│
                 └────────────┘   └──────────┘   └───────────┘   └──────────┘   └──────────┘   └────────────┘
-                   done             done            done            done          planned        planned
+                   done             done            done            done           done           done
 
  baseline restore = [line removal] → [pole-zero] → [baseline tracker], see baseline-restoration.md
 ```
@@ -74,6 +74,8 @@ process a live stream, not just stored files.
 | `gammaspec/pileup.py` | Pile-up resolution methods for one cluster: TM (paper), HYPER, LS, LS / GLS / WLS with sub-sample timing |
 | `gammaspec/solver.py` | `PileupSolver`: WLS + timing fit of a cluster, residual search for hidden pulses (step 6) |
 | `gammaspec/pileup_eval.py` | Pile-up benchmark: template pairs in real noise, real-pulse pairs, real pile-up events |
+| `gammaspec/calibration.py` | Energy calibration: anchor, bounded line fits, calibration curve, gain matching, gain vs time |
+| `gammaspec/analysis.py` | Energy spectra, live-time normalisation, background subtraction, net line rates, outputs (step 7) |
 | `gammaspec/spectrum.py` | Gaussian peak fits on a linear background (resolution, centroids) |
 | `gammaspec/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |
 | `gammaspec/plotting.py` | Shared figure style (validated colour palette, recessive axes) |

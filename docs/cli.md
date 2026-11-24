@@ -180,3 +180,22 @@ gammaspec report EVENTS.h5 [--n-peaks N] [--peaks C1,C2]
 
 Categories with fewer than 1000 events in the peak region are not fitted. Writes
 `EVENTS.report.json` and the spectrum plot `EVENTS.png`.
+
+## `spectrum`
+
+Calibrate the runs, build energy spectra and subtract the background ([spectrum.md](spectrum.md)).
+
+```bash
+gammaspec spectrum SOURCE_EVENTS.h5 OUT_DIR [--background BACKGROUND_EVENTS.h5] [--bin-kev 5] [--emax 3000]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--background` | none | event file of the background run (calibrated, or gain-matched to the source run) |
+| `--bin-kev` | 5 | bin width (keV) |
+| `--emax` | 3000 | upper end of the spectrum (keV) |
+
+Prints the calibrations and their residuals, the ⁶⁰Co and ⁴⁰K rates in the source,
+background and net spectra, total rates, and the gain drift. Writes
+`calibration_source.json`, `calibration_background.json`, `spectrum.csv`,
+`spectrum_summary.json`, `calibration.png`, `spectrum.png` and `spectrum_zoom.png`.

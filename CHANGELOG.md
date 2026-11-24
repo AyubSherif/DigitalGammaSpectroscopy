@@ -19,6 +19,13 @@ the project uses [Semantic Versioning](https://semver.org/).
   cumulative sums in `edge_signal`, `noise_sigma` on the central 131k samples.
 
 ### Added
+- `gammaspec.calibration`: automatic energy calibration (anchor, bounded line fits with
+  iterative removal of rejected lines, linear/quadratic curve), gain matching to a
+  reference run, gain drift vs time (ADR-0009).
+- `gammaspec.analysis` and CLI command `spectrum`: calibrated spectra, live-time
+  normalisation, background subtraction with errors, net line rates in local windows,
+  CSV/JSON/plots; `docs/spectrum.md`.
+- `spectrum.fit_peaks`: optional bounds (centre, width, non-negative area) and area errors.
 - `gammaspec.solver`: `PileupSolver` (WLS + sub-sample timing with a residual search for
   hidden pulses), run by the pipeline on every pile-up cluster and on badly fitted
   isolated pulses; new flag `FIT_ADDED`; `EventFile.good()`; CLI options
@@ -70,4 +77,4 @@ the project uses [Semantic Versioning](https://semver.org/).
 - CLI commands `index` and `convert` (`python -m gammaspec`).
 - Test suite with synthetic captures and real-data checks.
 - Documentation: architecture, data formats, CLI reference, development guide,
-  ADRs 0001–0008.
+  ADRs 0001–0009.

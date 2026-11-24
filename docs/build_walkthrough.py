@@ -40,6 +40,7 @@ The order follows the data:
 | C | 3. Pre-processing | interference removal → pole-zero correction → baseline tracker |
 | D | 4. Detection and events | optimal filter → successive cancellation → event list |
 | E | 5–6. Pile-up resolution | TM, HYPER and least-squares fits on a real cluster; the pile-up solver in the pipeline |
+| G | 7. Calibration and background subtraction | keV axis for each run, gain matching, net spectrum |
 | F | Evaluation tools | how the numbers in the docs were measured |
 
 Conventions: time is in **samples** (1 sample = 1/1.8 MHz = 0.556 µs) unless stated;
@@ -1077,6 +1078,151 @@ for name, c in rep["categories"].items():
         print(f"  {name:46s} n={c['n']:6d}  not fitted ({c['error']})")
     else:
         print(f"  {name:46s} n={c['n']:6d}  FWHM {' / '.join(f'{x:.2f}' for x in c['fwhm_pct'])} %   shift {' / '.join(f'{x:+.2f}' for x in c['shift_pct'])} %")
+""")
+
+# =============================================================================================
+md(r"""
+---
+# Part G: Energy calibration and background subtraction (step 7)
+
+Input: the good events of the source run and of the background run (event files from
+`gammaspec process`). Output: both on a keV axis, live-time-normalised spectra, and the
+net spectrum.
+
+## G1. `calibration.anchor_gain(amplitudes, kind)`
+A first gain (keV per volt) from an unmistakable line. `_peaks_in` histograms the
+amplitudes, smooths them, and returns the most prominent peaks.
+* **source:** the pair of peaks whose centre ratio is closest to 1332.5 / 1173.2 = 1.1357
+  (within 2 %) is ⁶⁰Co: gain = mean(1173.2 / A₁, 1332.5 / A₂);
+* **background:** the strongest peak is ⁴⁰K: gain = 1460.8 / A.
+""")
+code(r"""
+from gammaspec import calibration, analysis
+src_good = efull.good()
+bkg_good = events.EventFile(ROOT / "data/events/background.h5").good()
+g_src = calibration.anchor_gain(src_good["amplitude"], "source")
+g_bkg = calibration.anchor_gain(bkg_good["amplitude"], "background")
+print(f"source anchor gain {g_src:.1f} keV/V  ->  1173.2 keV predicted at {1173.228/g_src:.4f} V")
+print(f"background anchor gain {g_bkg:.1f} keV/V ->  1460.8 keV predicted at {1460.82/g_bkg:.4f} V")
+""")
+
+md(r"""
+## G2. `calibration.fit_lines(amplitudes, lines, gain)` → `_fit_group`
+
+Each library line is predicted at A = E / gain. Lines within 16 % of each other form a
+group and are fitted together by `spectrum.fit_peaks` with **bounds**: centre ±4 %, width
+0.5–2× the expected NaI resolution
+$\sigma(E) = E \cdot \tfrac{0.065}{2.3548}\sqrt{1173/E}$ (`expected_sigma_rel`), area ≥ 0.
+A line is accepted if its area is ≥ 4σ, its centre and width are not at a bound, and its
+FWHM is 2.5–15 %. If one is rejected, the least significant rejected line is dropped and
+the rest of the group refitted, until all remaining lines are accepted.
+""")
+code(r"""
+pts = calibration.fit_lines(src_good["amplitude"], calibration.SOURCE_LINES, g_src)
+for p_ in pts:
+    print(f"{p_.label:10s} {p_.energy_kev:8.1f} keV  A = {p_.amplitude_v:.4f} V  FWHM {p_.fwhm_pct:5.2f} %  area {p_.area:7.0f}  "
+          + ("accepted" if p_.accepted else "rejected: " + p_.note))
+""")
+
+md(r"""
+## G3. `calibration.fit_calibration(points)`
+
+Weighted least squares of $E = \sum_i c_i A^i$ through the accepted points. The weight of a
+point is $1/\sigma_E$ with $\sigma_E^2 = (\sigma_A \cdot \text{gain})^2 + (0.001\,E)^2$ (centre
+uncertainty plus a 0.1 % systematic). Linear by default; quadratic only with ≥ 4 points and
+if it halves χ²/ndf. With exactly two points the line passes through them, and a weak pin
+at (0, 0) keeps the offset reasonable.
+""")
+code(r"""
+cal_src = calibration.fit_calibration(pts)
+print("coefficients (keV, keV/V):", np.round(cal_src.coeffs, 3), "  chi2/ndf", round(cal_src.chi2_ndf, 2))
+for lab, e_, r_ in cal_src.residuals_kev():
+    print(f"  residual {lab:10s} {e_:8.1f} keV: {r_:+.2f} keV")
+""")
+
+md(r"""
+## G4. `calibration.gain_match(points, reference)`
+
+The background run has only ⁴⁰K. Same detector and electronics, so the calibration
+*shape* (offset, curvature) is taken from the source run, with one gain factor k:
+
+$$E_{bkg}(A) = E_{ref}(k A) = \sum_i c_i k^i A^i$$
+
+k is found for each accepted line by solving $E_{ref}(k A_\text{line}) = E_\text{line}$
+(Brent's method), and averaged with weights $(A/\sigma_A)^2$.
+""")
+code(r"""
+pts_b = calibration.fit_lines(bkg_good["amplitude"], calibration.BACKGROUND_LINES, g_bkg)
+print("accepted background lines:", [(p_.label, p_.energy_kev) for p_ in pts_b if p_.accepted])
+cal_bkg = calibration.gain_match(pts_b, cal_src)
+k_ = cal_bkg.coeffs[1] / cal_src.coeffs[1]
+print(f"k = {k_:.4f}: the background run's gain is {100*(1-1/k_):.1f} % lower;  E_bkg(A) = {cal_bkg.coeffs[0]:.2f} + {cal_bkg.coeffs[1]:.2f} A")
+print(f"without gain matching, the background 40K would appear at {cal_src.energy(pts_b[[p_.label for p_ in pts_b].index('K-40')].amplitude_v):.0f} keV")
+""")
+
+md(r"""
+## G5. `calibration.calibrate(...)` and `calibration.gain_vs_time(events, kind)`
+`calibrate` = anchor (G1) → lines (G2) → curve (G3), or gain matching (G4) when only one
+line is usable; repeated once with the gain from the accepted lines. `gain_vs_time` refits
+the anchor line(s) in chunks of 20 captures; relative gain per chunk (± its uncertainty).
+""")
+code(r"""
+print("source:", np.round(calibration.calibrate(src_good["amplitude"], "source").coeffs, 3))
+for g_ in calibration.gain_vs_time(src_good, "source"):
+    print(f"  captures {g_['first_capture']:3d}-{g_['first_capture']+19:3d}: gain {g_['relative_pct']:+.2f} % ± {g_['relative_err_pct']:.2f} %")
+""")
+
+md(r"""
+## G6. `analysis.energy_spectrum(...)` and `analysis.subtract(S, B)`
+
+Each run's events → keV with its own calibration → histogram on common 5 keV bins →
+divide by that run's live time. Per bin, with counts N and live times t:
+
+$$r_\text{net} = \frac{N_s}{t_s} - \frac{N_b}{t_b},\qquad
+\sigma^2 = \frac{N_s}{t_s^2} + \frac{N_b}{t_b^2}$$
+
+(Poisson; empty bins count as 1 for the error).
+""")
+code(r"""
+edges_ = np.arange(0, 3000.1, 5.0)
+S_ = analysis.energy_spectrum(cal_src.energy(src_good["amplitude"]), efull.live_time_s, edges_)
+B_ = analysis.energy_spectrum(cal_bkg.energy(bkg_good["amplitude"]), events.EventFile(ROOT / "data/events/background.h5").live_time_s, edges_)
+N_ = analysis.subtract(S_, B_)
+i0 = np.searchsorted(edges_, 1450)
+print("bin (keV)    source counts  bkg counts   source cps  bkg cps   net cps ± err")
+for i in range(i0, i0 + 4):
+    print(f"{edges_[i]:5.0f}-{edges_[i+1]:5.0f}   {S_.counts[i]:8.0f}     {B_.counts[i]:6.0f}     {S_.rate[i]:7.2f}   {B_.rate[i]:6.2f}   {N_.rate[i]:+6.2f} ± {N_.rate_err[i]:.2f}")
+""")
+
+md(r"""
+## G7. `analysis.fit_line_groups(spectrum)` → `fit_net_peaks`
+
+Line rates from Gaussian fits on a linear continuum, in **local windows**
+(`NET_GROUPS`): the ⁶⁰Co pair over 1040–1440 keV; ⁴⁰K over 1300–1650 keV with the 1332 keV
+peak as a **nuisance** (area ≥ 0: it can be absent, not negative), because ⁴⁰K sits on its
+flank. Reported lines may be negative (a line that should vanish in the net spectrum).
+""")
+code(r"""
+for name_, sp_ in (("source", analysis.NetSpectrum(edges_, S_.rate, S_.rate_err)),
+                   ("background", analysis.NetSpectrum(edges_, B_.rate, B_.rate_err)), ("net", N_)):
+    print(name_.ljust(10), "  ".join(f"{r_['label']} {r_['energy_kev']:.0f}: {r_['rate_cps']:7.2f} ± {r_['rate_err_cps']:.2f}" for r_ in analysis.fit_line_groups(sp_)))
+""")
+
+md(r"""
+## G8. `analysis.analyze(source, out_dir, background)` (the step-7 driver)
+Calibrate both runs, build and subtract the spectra, fit the lines, measure the gain drift,
+and write `calibration_*.json`, `spectrum.csv`, `spectrum_summary.json` and the plots. CLI:
+`gammaspec spectrum SOURCE_EVENTS OUT_DIR --background BACKGROUND_EVENTS`. Results:
+`docs/spectrum.md`.
+""")
+code(r"""
+summ = analysis.analyze(ROOT / "data/events/source_first100.h5", TMP / "spec", ROOT / "data/events/background.h5", verbose=False)
+print("totals above 120 keV (counts/s):", {k: round(v) for k, v in summ["totals_cps"].items()})
+fig, ax = P.figure(1, 1, height_per_row=3.4)
+w_ = np.diff(edges_)
+ax[0,0].stairs(S_.rate / w_, edges_, label="source"); ax[0,0].stairs(B_.rate / w_, edges_, label="background")
+ax[0,0].stairs(np.clip(N_.rate / w_, 1e-4, None), edges_, label="net (clipped at 1e-4)")
+ax[0,0].set_yscale("log"); ax[0,0].set_xlabel("energy (keV)"); ax[0,0].set_ylabel("counts / s / keV"); ax[0,0].legend(); plt.show()
 """)
 
 # =============================================================================================

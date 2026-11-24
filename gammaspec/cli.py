@@ -208,6 +208,29 @@ def _cmd_report(args) -> int:
     return 0
 
 
+def _cmd_spectrum(args) -> int:
+    from .analysis import analyze
+
+    s = analyze(args.source, args.out, background_events=args.background, bin_kev=args.bin_kev,
+                e_max_kev=args.emax)
+    for lab, e, r in s["calibration_source"]["residuals_kev"]:
+        print(f"  source line {lab:10s} {e:8.1f} keV: residual {r:+.2f} keV")
+    if "lines" in s:
+        print(f"background calibration: {s['calibration_background']['kind']}")
+        print(f"{'line':8s} {'keV':>8s} {'source cps':>14s} {'background cps':>16s} {'net cps':>16s}")
+        for k in range(len(s["lines"]["net"])):
+            ls, lb, ln = (s["lines"][x][k] for x in ("source", "background", "net"))
+            print(f"{ln['label']:8s} {ln['energy_kev']:8.1f} {ls['rate_cps']:8.2f}+-{ls['rate_err_cps']:.2f} "
+                  f"{lb['rate_cps']:9.2f}+-{lb['rate_err_cps']:.2f} {ln['rate_cps']:9.2f}+-{ln['rate_err_cps']:.2f}")
+        t = s["totals_cps"]
+        print(f"total rate above {s['reliable_above_kev']:.0f} keV: source {t['source']:.0f} /s, "
+              f"background {t['background']:.0f} /s, net {t['net']:.0f} /s")
+    print("gain drift (source run, % per chunk): "
+          + ", ".join(f"{g['relative_pct']:+.2f}" for g in s["gain_vs_time_source"]))
+    print(f"outputs in {args.out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="gammaspec", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -290,6 +313,14 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--n-peaks", type=int, default=2, help="peaks to fit (found automatically)")
     pr.add_argument("--peaks", help="comma-separated starting guesses for the peak centres (V)")
     pr.set_defaults(func=_cmd_report)
+
+    ps = sub.add_parser("spectrum", help="calibrate, build energy spectra, subtract the background")
+    ps.add_argument("source", help="event file of the source run")
+    ps.add_argument("out", help="output directory")
+    ps.add_argument("--background", help="event file of the background run")
+    ps.add_argument("--bin-kev", type=float, default=5.0, help="bin width in keV (default 5)")
+    ps.add_argument("--emax", type=float, default=3000.0, help="upper end of the spectrum in keV")
+    ps.set_defaults(func=_cmd_spectrum)
 
     args = p.parse_args(argv)
     if getattr(args, "lsb", None) is None and hasattr(args, "lsb"):
