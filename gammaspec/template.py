@@ -46,8 +46,28 @@ class PulseTemplate:
         return self.t_start + (self.shape.size - 1) / self.resolution
 
     def __call__(self, t: np.ndarray) -> np.ndarray:
-        """Evaluate at arbitrary times (samples). Zero before the start and after the end."""
-        return np.interp(t, self.t, self.shape, left=0.0, right=0.0)
+        """Evaluate at arbitrary times (samples). Zero before the start and after the end.
+
+        Linear interpolation on the uniform grid, done by direct indexing (the grid spacing is
+        1/resolution), which is much faster than a general search.
+        """
+        return self._interp(self.shape, t)
+
+    def derivative(self, t: np.ndarray) -> np.ndarray:
+        """ds/dt (per sample) at arbitrary times, from a precomputed central-difference array."""
+        if getattr(self, "_dshape", None) is None or self._dshape.size != self.shape.size:
+            self._dshape = np.gradient(self.shape) * self.resolution
+        return self._interp(self._dshape, t)
+
+    def _interp(self, values: np.ndarray, t) -> np.ndarray:
+        x = (np.asarray(t, dtype=np.float64) - self.t_start) * self.resolution
+        n = values.size
+        i0 = np.floor(x)
+        inside = (x >= 0) & (x <= n - 1)
+        i0 = np.clip(i0, 0, n - 2).astype(np.intp)
+        f = x - i0
+        out = values[i0] * (1.0 - f) + values[i0 + 1] * f
+        return np.where(inside, out, 0.0)
 
     def save(self, path: str | Path) -> None:
         with h5py.File(path, "w") as f:

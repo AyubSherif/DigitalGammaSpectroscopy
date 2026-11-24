@@ -33,7 +33,7 @@ Properties measured from the data, which drive the design (details and figures i
  raw captures ─►│ ingestion  │──►│ baseline │──►│ detection │──►│ pile-up  │──►│ spectrum │──►│ background │
                 │  (store)   │   │ restore  │   │ (events)  │   │ & energy │   │ & calib. │   │ subtraction│
                 └────────────┘   └──────────┘   └───────────┘   └──────────┘   └──────────┘   └────────────┘
-                   done             done            done           planned        planned        planned
+                   done             done            done            done          planned        planned
 
  baseline restore = [line removal] → [pole-zero] → [baseline tracker], see baseline-restoration.md
 ```
@@ -72,6 +72,7 @@ process a live stream, not just stored files.
 | `gammaspec/pipeline.py` | `Pipeline` / `run`: store → pre-processing → detection → clusters, flags, template fits, snippets → event file (parallel over captures) |
 | `gammaspec/detection_eval.py` | Injection tests of the detection methods in real and phase-scrambled noise |
 | `gammaspec/pileup.py` | Pile-up resolution methods for one cluster: TM (paper), HYPER, LS, LS / GLS / WLS with sub-sample timing |
+| `gammaspec/solver.py` | `PileupSolver`: WLS + timing fit of a cluster, residual search for hidden pulses (step 6) |
 | `gammaspec/pileup_eval.py` | Pile-up benchmark: template pairs in real noise, real-pulse pairs, real pile-up events |
 | `gammaspec/spectrum.py` | Gaussian peak fits on a linear background (resolution, centroids) |
 | `gammaspec/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |

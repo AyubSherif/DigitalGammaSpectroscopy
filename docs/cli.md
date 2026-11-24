@@ -133,7 +133,9 @@ gammaspec process STORE.h5 OUT.h5 --template TEMPLATE.h5 [--no-line-removal] [--
 | `--no-line-removal`, `--no-pole-zero`, `--no-tracker` | all on | switch pre-processing stages off |
 | `--method` | `optimal` | detection filter ([detection.md](detection.md)) |
 | `--threshold K` | 5.5 | detection threshold, in noise sigma of the filter output |
-| `--snippets` | `pileup` | store clean waveforms of pile-up clusters (input for the pile-up solver), of all clusters, or none |
+| `--no-pileup-solver` | off | do not resolve pile-up clusters ([pileup-solver.md](pileup-solver.md)) |
+| `--no-residual-search` | off | resolve clusters but do not search for hidden pulses |
+| `--snippets` | `pileup` | store clean waveforms of pile-up clusters, of all clusters, or none |
 | `--limit N` | all | only the first *N* captures |
 
 Prints the event count, processing speed (× real time), rate, flag fractions and the size
@@ -161,3 +163,20 @@ gammaspec evaluate-pileup STORE.h5 TEMPLATE.h5 EVENTS.h5 OUT_DIR
 `EVENTS.h5` is the event file of the same store (its pile-up snippets are test C). Prints the
 three test tables and the speed; writes `pileup_summary.json`, `pileup_template_pairs.png`,
 `pileup_real_pairs.png` and `pileup_real_events.png`.
+
+## `report`
+
+Fit the main spectral peaks of an event file by category (isolated, resolved pile-up by
+gap, all good events) and report the throughput.
+
+```bash
+gammaspec report EVENTS.h5 [--n-peaks N] [--peaks C1,C2]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--n-peaks N` | 2 | number of peaks, found automatically in the isolated-pulse spectrum |
+| `--peaks` | auto | starting guesses for the peak centres (V) |
+
+Categories with fewer than 1000 events in the peak region are not fitted. Writes
+`EVENTS.report.json` and the spectrum plot `EVENTS.png`.

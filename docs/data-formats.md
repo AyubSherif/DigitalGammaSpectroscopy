@@ -85,8 +85,8 @@ Every column is a separate compressed, resizable dataset.
 | `capture` | u4 | capture number (row in the store) |
 | `index` | i8 | peak sample within the capture |
 | `time_s` | f8 | capture time + (index + shift) × Δt |
-| `amplitude` | f4 | template-fit amplitude in volts (isolated pulses; NaN otherwise) |
-| `filter_amplitude` | f4 | detection-filter amplitude estimate (all pulses) |
+| `amplitude` | f4 | amplitude in volts: template fit (isolated) or pile-up solver (clusters); NaN if not measured |
+| `filter_amplitude` | f4 | detection-filter amplitude estimate (NaN for pulses added by the solver) |
 | `shift` | f4 | sub-sample peak position relative to `index` |
 | `fit_rms` | f4 | rms residual of the template fit |
 | `flags` | u2 | bit mask, see below; 0 = clean |
@@ -95,7 +95,11 @@ Every column is a separate compressed, resizable dataset.
 
 Flags: 1 `PILEUP` (cluster size > 1), 2 `WARMUP` (first 1500 samples of a capture),
 4 `EDGE` (no room for the fit window), 8 `BAD_FIT` (isolated but poorly fitted),
-16 `LARGE` (> 1.5 V), 32 `AFTER_LARGE` (within 200 samples after a large pulse).
+16 `LARGE` (> 1.5 V), 32 `AFTER_LARGE` (within 200 samples after a large pulse),
+64 `FIT_ADDED` (found by the pile-up solver's residual search). `PILEUP` and `FIT_ADDED`
+only describe how a pulse was measured: with the solver on, those pulses have valid
+amplitudes. `EventFile.good()` returns every event with a usable amplitude;
+`EventFile.clean()` only the unflagged (isolated) ones.
 
 `/captures/<column>`, one row per capture: `capture`, `time_s`, `live_time_s` (valid
 region), `offset_v`, `sigma_in_v`, `sigma_out_v` (noise before / after pre-processing),

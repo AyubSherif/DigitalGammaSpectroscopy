@@ -29,9 +29,14 @@ FLAG_EDGE = 4            # too close to the capture end for a complete fit windo
 FLAG_BAD_FIT = 8         # isolated, but the template fit is poor (likely unresolved pile-up)
 FLAG_LARGE = 16          # amplitude above the large-pulse limit (e.g. cosmic muons)
 FLAG_AFTER_LARGE = 32    # shortly after a large pulse: may be an artifact of it
+FLAG_FIT_ADDED = 64      # found by the pile-up solver's residual search (not by the detector)
 
 FLAG_NAMES = {FLAG_PILEUP: "pileup", FLAG_WARMUP: "warmup", FLAG_EDGE: "edge",
-              FLAG_BAD_FIT: "bad_fit", FLAG_LARGE: "large", FLAG_AFTER_LARGE: "after_large"}
+              FLAG_BAD_FIT: "bad_fit", FLAG_LARGE: "large", FLAG_AFTER_LARGE: "after_large",
+              FLAG_FIT_ADDED: "fit_added"}
+
+#: flags that only describe how an event was measured; its amplitude is still valid
+INFO_FLAGS = FLAG_PILEUP | FLAG_FIT_ADDED
 
 EVENT_DTYPE = np.dtype([
     ("capture", "u4"),          # capture number (row in the store, time order)
@@ -145,6 +150,15 @@ class EventFile:
     def clean(self) -> np.ndarray:
         """Events with no flags (isolated, fitted, inside the valid region)."""
         return self.events[self.events["flags"] == 0]
+
+    def good(self, include_pileup: bool = True) -> np.ndarray:
+        """Events with a valid amplitude and no problem flags. With ``include_pileup``, pulses
+        resolved by the pile-up solver are included (their PILEUP / FIT_ADDED flags only
+        describe how they were measured)."""
+        allowed = INFO_FLAGS if include_pileup else 0
+        ev = self.events
+        ok = ((ev["flags"] & np.uint16(~np.uint16(allowed))) == 0) & np.isfinite(ev["amplitude"])
+        return ev[ok]
 
     def snippet(self, cluster: int) -> tuple[int, int, np.ndarray]:
         """(capture, start sample, waveform) of a stored cluster."""

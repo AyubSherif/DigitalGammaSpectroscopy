@@ -39,7 +39,7 @@ The order follows the data:
 | B | 2. Characterisation | pulse template, analytic pulse model, noise |
 | C | 3. Pre-processing | interference removal → pole-zero correction → baseline tracker |
 | D | 4. Detection and events | optimal filter → successive cancellation → event list |
-| E | 5. Pile-up resolution | TM, HYPER and least-squares fits on a real pile-up cluster |
+| E | 5–6. Pile-up resolution | TM, HYPER and least-squares fits on a real cluster; the pile-up solver in the pipeline |
 | F | Evaluation tools | how the numbers in the docs were measured |
 
 Conventions: time is in **samples** (1 sample = 1/1.8 MHz = 0.556 µs) unless stated;
@@ -747,8 +747,11 @@ For one capture: pre-process (C8) → detect (D8) → then
 * **flags**: PILEUP (cluster > 1), WARMUP (first 1500 samples), EDGE, then the template fit
   (B7, baseline fixed at 0) of isolated pulses → amplitude, shift, rms; BAD_FIT if
   rms > 4σ + 2 % × A; LARGE (> 1.5 V) and AFTER_LARGE (200 samples after one);
-* **time** = capture time + (index + shift) × Δt;
-* **snippets**: clean waveform of each pile-up cluster (−20…+80 samples) for the solver.
+* **snippets**: clean waveform of each pile-up cluster (−20…+80 samples), kept for re-analysis;
+* **pile-up solver** (`_solve_clusters`, explained in E9–E10): amplitudes and sub-sample
+  times for every pulse in a cluster (and for badly fitted isolated pulses), plus pulses
+  found by its residual search (flag FIT_ADDED); gaps and cluster sizes recomputed;
+* **time** = capture time + (index + shift) × Δt.
 """)
 code(r"""
 pipe = pipeline.Pipeline(T, FS)
@@ -989,6 +992,91 @@ ax[0,0].plot(t_, yc * 1e3, marker="o", markersize=2.5, linewidth=0.8, label="dat
 ax[0,0].plot(t_, model_w * 1e3, linewidth=1.2, label="WLS fit (sum of two templates)")
 ax[0,0].plot(t_, (yc - model_w) * 1e3, linewidth=1.0, label="residual")
 ax[0,0].set_ylabel("mV"); ax[0,0].legend(); plt.show()
+""")
+
+md(r"""
+## E9. `solver.PileupSolver` (step 6): the chosen method inside the pipeline
+
+`PileupSolver(template, noise_acov, SolverConfig)` is built once per capture.
+
+* `taper_autocovariance(acov, 512)`: keeps 512 lags and tapers the last quarter smoothly
+  to 0 (half-cosine). An abruptly truncated autocovariance can make the Toeplitz matrix
+  indefinite, and then the Cholesky factorisation fails.
+* `_whitener(n, extra_var)`: C = Toeplitz(r) + extra_var·I → Cholesky L → **W = L⁻¹**,
+  formed once per cluster, so every later whitening is a single matrix product.
+* `_fit(y, t0, W, Wy)`: the WLS + timing fit of E5–E7, solving the small normal equations
+  $(X_w^T X_w)\,c = X_w^T y_w$ each iteration and stopping when no time moves by more
+  than 0.005 samples (times stay within ±1.25 samples of the detected positions).
+  `PulseTemplate.derivative(t)` gives s'(t) from a precomputed central-difference array,
+  and `PulseTemplate.__call__` interpolates by direct indexing on its uniform grid.
+* `solve(y, positions)`: (1) unweighted LS to get $A_\max$ for the mismatch term;
+  (2) whitening matrix; (3) fit; (4) **residual search**: for candidate times τ every half
+  sample, with whitened residual $r_w$ and whitened template $s_w(\tau)$,
+
+  $$A^*(\tau) = \frac{s_w\cdot r_w}{s_w\cdot s_w},\qquad z(\tau) = \frac{s_w\cdot r_w}{\sqrt{s_w\cdot s_w}}$$
+
+  ($z^2$ is the drop in $\chi^2$ from adding that pulse). If max z > 8, positive, at least
+  one sample from the existing pulses: add it, refit everything, and keep it only if its
+  amplitude is still > 8σ. (5) rms and whitened χ² per sample.
+
+Below: a real cluster where the detector saw **one** pulse but the solver found two.
+""")
+code(r"""
+from gammaspec import solver
+ev_s = efull.events
+added_ev = ev_s[(ev_s["flags"] & events.FLAG_FIT_ADDED) != 0]
+pick = added_ev[(added_ev["amplitude"] > 0.03)][0]
+cap_s, cl_s = int(pick["capture"]), int(pick["cluster"])
+rows_s = ev_s[ev_s["cluster"] == cl_s]
+detected_rows = rows_s[(rows_s["flags"] & events.FLAG_FIT_ADDED) == 0]
+pipe_s = pipeline.Pipeline(T, FS)
+with store.CaptureStore(SRC_STORE) as s:
+    pipe_s.pre.reset(); ys = pipe_s.pre.process(s.volts(cap_s))
+a_s = int(detected_rows["index"][0]) - 10
+b_s = int(detected_rows["index"][-1]) + 41
+free_s = signal.pulse_free_mask(ys.size, pipe_s.detector.detect(ys).index, 20, 120)
+sv = solver.PileupSolver(Tp, detect.noise_autocovariance(ys, free_s, 512), solver.SolverConfig())
+res_s = sv.solve(ys[a_s:b_s], detected_rows["index"] - a_s)
+print("detected positions:", detected_rows["index"] - a_s, "-> solver times:", np.round(res_s.time, 2),
+      "amplitudes (mV):", np.round(res_s.amplitude * 1e3, 1), "added:", res_s.added)
+print(f"rms {res_s.rms*1e3:.3f} mV, whitened chi2 per sample {res_s.chi2:.2f}")
+no_search = solver.PileupSolver(Tp, detect.noise_autocovariance(ys, free_s, 512), solver.SolverConfig(residual_search=False))
+r1 = no_search.solve(ys[a_s:b_s], detected_rows["index"] - a_s)
+tt_s = np.arange(b_s - a_s, dtype=float)
+m1 = Tp(tt_s[:, None] - r1.time[None, :]) @ r1.amplitude
+m2 = Tp(tt_s[:, None] - res_s.time[None, :]) @ res_s.amplitude
+print(f"without the search: one pulse of {r1.amplitude[0]*1e3:.1f} mV, rms {r1.rms*1e3:.3f} mV, chi2 {r1.chi2:.1f}")
+fig, ax = P.figure(1, 1, height_per_row=3.0)
+ax[0,0].plot(tt_s, ys[a_s:b_s] * 1e3, marker="o", markersize=2.5, linewidth=0.8, label="data")
+ax[0,0].plot(tt_s, (ys[a_s:b_s] - m1) * 1e3, linewidth=1.0, label="residual, one pulse")
+ax[0,0].plot(tt_s, (ys[a_s:b_s] - m2) * 1e3, linewidth=1.0, label="residual, with the found pulse")
+ax[0,0].set_ylabel("mV"); ax[0,0].legend(); plt.show()
+""")
+
+md(r"""
+## E10. `Pipeline._solve_clusters`, `EventFile.good()` and `pipeline.spectrum_report`
+
+* `_solve_clusters(e, y, detected)`: noise autocovariance of the capture (pulse-free mask
+  around the detections); for each cluster of > 1 pulse, and each isolated pulse flagged
+  BAD_FIT, `solve` the window [first − 10, last + 40]; write amplitudes, shifts
+  (= solver time − index) and rms; set or clear BAD_FIT (rms > 4σ + 2 % A_max); append
+  found pulses as new rows (PILEUP | FIT_ADDED); sort; recompute gaps and cluster sizes.
+* `EventFile.good(include_pileup=True)`: every event with a finite amplitude whose flags are
+  only PILEUP / FIT_ADDED (how it was measured), i.e. no warm-up, edge, bad fit or large
+  pulse. `clean()` stays "no flags at all" (isolated pulses).
+* `spectrum_report(events)`: Gaussian peak fits (`fit_peaks`, D12) of isolated, resolved
+  pile-up (by gap) and all good events, with shifts relative to isolated and the
+  throughput (good / valid events). Categories with < 1000 events in the peak region are
+  not fitted.
+""")
+code(r"""
+rep = pipeline.spectrum_report(ROOT / "data/events/source_first100.h5")
+print(f"throughput {100*rep['throughput']:.1f} % (isolated only {100*rep['isolated_fraction']:.1f} %), pulses found by the solver: {rep['fit_added']}")
+for name, c in rep["categories"].items():
+    if "error" in c:
+        print(f"  {name:46s} n={c['n']:6d}  not fitted ({c['error']})")
+    else:
+        print(f"  {name:46s} n={c['n']:6d}  FWHM {' / '.join(f'{x:.2f}' for x in c['fwhm_pct'])} %   shift {' / '.join(f'{x:+.2f}' for x in c['shift_pct'])} %")
 """)
 
 # =============================================================================================

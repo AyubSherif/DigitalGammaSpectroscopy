@@ -114,12 +114,14 @@ def _cmd_process(args) -> int:
     from .detect import DetectConfig
     from .pipeline import EventConfig, PipelineConfig, plot_event_spectrum, run, summarize
     from .preprocess import PreprocessConfig
+    from .solver import SolverConfig
 
     cfg = PipelineConfig(
         preprocess=PreprocessConfig(line_removal=not args.no_line_removal, pole_zero=not args.no_pole_zero,
                                     baseline_tracker=not args.no_tracker),
         detect=DetectConfig(method=args.method, threshold=args.threshold),
         events=EventConfig(snippets=args.snippets),
+        solver=SolverConfig(enabled=not args.no_pileup_solver, residual_search=not args.no_residual_search),
     )
     r = run(args.store, args.template, args.out, cfg, limit=args.limit, overwrite=args.overwrite)
     s = summarize(args.out)
@@ -180,6 +182,32 @@ def _cmd_evaluate_pileup(args) -> int:
     return 0
 
 
+def _cmd_report(args) -> int:
+    import json
+    from pathlib import Path
+
+    from .pipeline import plot_event_spectrum, spectrum_report
+
+    guess = [float(v) for v in args.peaks.split(",")] if args.peaks else None
+    r = spectrum_report(args.events, n_peaks=args.n_peaks, guess=guess)
+    print(f"valid events {r['valid_events']}, with a usable amplitude {r['good_events']} "
+          f"(throughput {100 * r['throughput']:.1f} %; isolated only: {100 * r['isolated_fraction']:.1f} %); "
+          f"pulses found by the solver: {r['fit_added']}")
+    print(f"{'category':46s} {'n':>7s}  {'centres (V)':>18s}  {'shift vs isolated (%)':>22s}  {'FWHM (%)':>16s}")
+    for name, c in r["categories"].items():
+        if "error" in c:
+            print(f"{name:46s} {c['n']:7d}  not fitted: {c['error'][:50]}")
+            continue
+        print(f"{name:46s} {c['n']:7d}  {' / '.join(f'{x:.4f}' for x in c['centers']):>18s}  "
+              f"{' / '.join(f'{x:+.2f}' for x in c['shift_pct']):>22s}  "
+              f"{' / '.join(f'{x:.2f}' for x in c['fwhm_pct']):>16s}")
+    out = Path(args.events).with_suffix(".report.json")
+    out.write_text(json.dumps(r, indent=2), encoding="utf-8")
+    plot_event_spectrum(args.events, Path(args.events).with_suffix(".png"))
+    print(f"written {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="gammaspec", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -235,6 +263,9 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--method", default="optimal", choices=["optimal", "matched", "sharpened", "edge"],
                     help="detection filter (default optimal)")
     pp.add_argument("--threshold", type=float, default=5.5, help="detection threshold in filter sigma")
+    pp.add_argument("--no-pileup-solver", action="store_true", help="skip the pile-up solver")
+    pp.add_argument("--no-residual-search", action="store_true",
+                    help="pile-up solver without the search for hidden pulses")
     pp.add_argument("--snippets", default="pileup", choices=["none", "pileup", "all"],
                     help="which clusters get waveform snippets (default pileup)")
     pp.add_argument("--limit", type=int, help="only the first N captures")
@@ -253,6 +284,12 @@ def main(argv: list[str] | None = None) -> int:
     pu.add_argument("events", help="event file of the same store (pile-up snippets)")
     pu.add_argument("out", help="output directory")
     pu.set_defaults(func=_cmd_evaluate_pileup)
+
+    pr = sub.add_parser("report", help="spectrum peaks by event category, throughput")
+    pr.add_argument("events", help="event file")
+    pr.add_argument("--n-peaks", type=int, default=2, help="peaks to fit (found automatically)")
+    pr.add_argument("--peaks", help="comma-separated starting guesses for the peak centres (V)")
+    pr.set_defaults(func=_cmd_report)
 
     args = p.parse_args(argv)
     if getattr(args, "lsb", None) is None and hasattr(args, "lsb"):

@@ -1,6 +1,6 @@
 # ADR-0008: Resolve pile-up with weighted least squares and sub-sample timing
 
-* **Status:** Accepted (solver implementation in step 6)
+* **Status:** Accepted; implemented in `gammaspec/solver.py` (step 6, [pileup-solver.md](../pileup-solver.md))
 * **Date:** 2026-11-24
 
 ## Context
@@ -22,8 +22,7 @@ Resolve pile-up clusters by **weighted least squares with sub-sample timing** (`
 
 * model: y(t) = Σ A_k s(t − t_k) over the cluster window, with the pole-zero-corrected
   data template s;
-* t_k refined jointly by Gauss–Newton (template derivative), limited to ±0.75 samples
-  around the detected positions;
+* t_k refined jointly by Gauss–Newton (template derivative), limited to a window around the detected positions (±0.75 samples in the benchmark; ±1.25 in the solver, so a detection one sample off can still reach the true peak instead of being "explained" by a spurious extra pulse);
 * weights: the inverse of C = C_noise + (ε A_max)² I, with C_noise the measured noise
   covariance and ε = 0.35 % the measured template mismatch.
 

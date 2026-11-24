@@ -12,10 +12,19 @@ the project uses [Semantic Versioning](https://semver.org/).
   starts at the input's mean level (0 after offset removal).
 
 ### Changed
+- `PulseTemplate` evaluation by direct indexing on its uniform grid (identical results,
+  much faster); pipeline workers limited to one BLAS thread each (they oversubscribed the
+  CPU).
 - Faster processing: noise covariance and line detection with fewer and faster FFTs,
   cumulative sums in `edge_signal`, `noise_sigma` on the central 131k samples.
 
 ### Added
+- `gammaspec.solver`: `PileupSolver` (WLS + sub-sample timing with a residual search for
+  hidden pulses), run by the pipeline on every pile-up cluster and on badly fitted
+  isolated pulses; new flag `FIT_ADDED`; `EventFile.good()`; CLI options
+  `--no-pileup-solver` / `--no-residual-search`; CLI command `report` (peaks by category,
+  throughput); `docs/pileup-solver.md`.
+- `PulseTemplate.derivative()`.
 - `gammaspec.pileup`: pile-up resolution methods (TM as in the reference paper, HYPER,
   least squares with integer times, and LS / GLS / WLS with sub-sample timing).
 - `gammaspec.pileup_eval` and CLI command `evaluate-pileup`: benchmark on template pairs in

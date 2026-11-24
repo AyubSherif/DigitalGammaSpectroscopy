@@ -9,8 +9,8 @@ the photomultiplier (PMT) and digitised at 1.8 MS/s, with a ⁶⁰Co source and 
 separate background run.
 
 > **Status: early development (v0.1).** Data ingestion, detector characterisation,
-> waveform pre-processing and event detection (the event list) are complete. Pile-up
-> correction and spectrum building are in progress.
+> waveform pre-processing, event detection and pile-up resolution are complete.
+> Energy calibration and background subtraction are in progress.
 > See [Roadmap](#roadmap).
 
 ## Why
@@ -28,7 +28,7 @@ raw ASCII captures
   → interference removal         (done)
   → baseline restoration         (done)
   → event detection              (done)  ← the data reduction step
-  → pile-up resolution & energy  (planned)
+  → pile-up resolution & energy  (done)
   → histogram & calibration      (planned)
   → background subtraction       (planned)
 ```
@@ -77,6 +77,7 @@ with CaptureStore("data/source_first100.h5") as store:
 | [docs/baseline-restoration.md](docs/baseline-restoration.md) | Interference removal, pole-zero correction, baseline tracker: method and results |
 | [docs/detection.md](docs/detection.md) | Event detection and the event list: method, evaluation, results |
 | [docs/pileup-benchmark.md](docs/pileup-benchmark.md) | Pile-up methods compared on synthetic and real pile-ups |
+| [docs/pileup-solver.md](docs/pileup-solver.md) | The pile-up solver in the pipeline: method, tuning, results |
 | [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths |
 | [docs/data-formats.md](docs/data-formats.md) | Raw capture format, HDF5 store schema, index CSV |
 | [docs/cli.md](docs/cli.md) | Command-line reference |
@@ -91,7 +92,7 @@ with CaptureStore("data/source_first100.h5") as store:
 3. ✅ Interference removal and baseline restoration: pole-zero correction plus a slow baseline tracker ([results](docs/baseline-restoration.md))
 4. ✅ Event detection (optimal filter + successive cancellation) and the event list ([results](docs/detection.md))
 5. ✅ Pile-up benchmark: template matching vs HYPER vs least-squares fits ([results](docs/pileup-benchmark.md))
-6. ⬜ Pile-up solver and energy estimation
+6. ✅ Pile-up solver: weighted least squares with sub-sample timing and a search for hidden pulses ([results](docs/pileup-solver.md))
 7. ⬜ Spectrum, energy calibration (⁶⁰Co, ⁴⁰K, ²⁰⁸Tl) and background subtraction
 8. ⬜ User-selectable stages (pipeline configuration)
 9. ⬜ Streaming input and live spectrum
