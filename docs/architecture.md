@@ -33,7 +33,9 @@ Properties measured from the data, which drive the design (details and figures i
  raw captures ─►│ ingestion  │──►│ baseline │──►│ detection │──►│ pile-up  │──►│ spectrum │──►│ background │
                 │  (store)   │   │ restore  │   │ (events)  │   │ & energy │   │ & calib. │   │ subtraction│
                 └────────────┘   └──────────┘   └───────────┘   └──────────┘   └──────────┘   └────────────┘
-                   done            planned         planned         planned        planned        planned
+                   done             done           planned         planned        planned        planned
+
+ baseline restore = [line removal] → [pole-zero] → [baseline tracker], see baseline-restoration.md
 ```
 
 ### Modularity
@@ -62,6 +64,11 @@ process a live stream, not just stored files.
 | `gammaspec/template.py` | `PulseTemplate` (fine-grid, sub-sample evaluation, HDF5 I/O); per-pulse fit of amplitude, baseline and sub-sample time; iterative template construction with phase equalisation; analytic multi-exponential model |
 | `gammaspec/noise.py` | Pulse-free noise windows, power spectral density, autocorrelation |
 | `gammaspec/characterize.py` | Detector characterisation: template, model, shape vs amplitude, noise (quiet/noisy split, interference lines), stability, preliminary spectrum, plots |
+| `gammaspec/interference.py` | `LineRemoval` stage: line detection in the masked spectrum, block-wise sinusoid subtraction on pulse-free samples |
+| `gammaspec/baseline.py` | Pole-zero filter design from the pulse model, `PoleZero` stage (streamable IIR), `filter_template`, `BaselineTracker` stage |
+| `gammaspec/preprocess.py` | `PreprocessConfig` / `Preprocessor`: the optional chain polarity+offset → lines → pole-zero → tracker |
+| `gammaspec/spectrum.py` | Gaussian peak fits on a linear background (resolution, centroids) |
+| `gammaspec/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |
 | `gammaspec/plotting.py` | Shared figure style (validated colour palette, recessive axes) |
 | `gammaspec/cli.py`, `__main__.py` | Command-line entry point: `python -m gammaspec …` |
 | `tests/` | Unit tests (synthetic captures) and real-data checks that are skipped when the data is absent |

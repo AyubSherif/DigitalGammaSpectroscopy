@@ -7,6 +7,17 @@ the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- `gammaspec.interference`: `LineRemoval` stage that detects narrow interference lines and
+  subtracts them as block-wise sinusoids fitted to pulse-free samples (ADR-0006).
+- `gammaspec.baseline`: pole-zero correction designed from the pulse model
+  (`design_pole_zero`, `PoleZero`, `filter_template`) and a `BaselineTracker` stage (ADR-0005).
+- `gammaspec.preprocess`: `Preprocessor` chaining the optional stages from a
+  `PreprocessConfig`; warns when pole-zero is used without the tracker.
+- `gammaspec.spectrum`: Gaussian peak fits for resolution measurements.
+- `gammaspec.restoration` and CLI command `evaluate-restoration`: compares stage
+  combinations on the same pulses (noise, pre-pulse baseline, tail, FWHM, pulses on tails).
+- `fit_pulses(..., fit_baseline=False)` for restored signals.
+- `docs/baseline-restoration.md`: method and results.
 - `gammaspec.signal`: polarity handling, robust noise estimates, coarse leading-edge
   trigger, isolation and pulse-free masks.
 - `gammaspec.template`: fine-grid `PulseTemplate`; per-pulse fit of amplitude,
@@ -27,4 +38,4 @@ the project uses [Semantic Versioning](https://semver.org/).
 - CLI commands `index` and `convert` (`python -m gammaspec`).
 - Test suite with synthetic captures and real-data checks.
 - Documentation: architecture, data formats, CLI reference, development guide,
-  ADRs 0001–0004.
+  ADRs 0001–0006.

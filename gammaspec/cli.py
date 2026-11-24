@@ -80,6 +80,34 @@ def _cmd_characterize(args) -> int:
     return 0
 
 
+def _cmd_evaluate_restoration(args) -> int:
+    from .restoration import evaluate
+
+    s = evaluate(args.store, args.template, args.out, n_peaks=args.n_peaks, limit=args.limit)
+    print(s["pole_zero"])
+    def fw(d):
+        return " / ".join(f"{v:.2f}" for v in d.get("fwhm_pct", [])) or "n/a"
+
+    def ce(d):
+        return " / ".join(f"{v:.4f}" for v in d.get("centers_v", [])) or "n/a"
+
+    print(f"{'configuration':30s} {'sigma mV':>9s} {'base sigma mV':>14s} {'|base|>5mV':>11s} {'tail@60':>9s} "
+          f"{'FWHM % (b free)':>18s} {'FWHM % (b=0)':>16s}")
+    for name, r in s["configs"].items():
+        bl = r["pre_pulse_baseline_mv"]
+        print(f"{name:30s} {r['sigma_mv']:9.2f} {bl['robust_sigma']:14.2f} {bl['frac_beyond_5mv']:11.3f} "
+              f"{r['tail_at']['60']:9.4f} {fw(r['baseline_free']):>18s} {fw(r['baseline_fixed']):>16s}")
+    print()
+    print("pulses ON THE TAIL of an earlier pulse (60-300 samples after it) vs CLEAN (>300):")
+    for name, r in s["configs"].items():
+        g = r["by_previous_gap"]
+        for lab in ("baseline_free", "baseline_fixed"):
+            print(f"{name:30s} {lab:15s} on-tail n={g['on_tail']['n']:6d} centres {ce(g['on_tail'][lab]):>16s} "
+                  f"FWHM {fw(g['on_tail'][lab]):>12s} | clean centres {ce(g['clean'][lab]):>16s} "
+                  f"FWHM {fw(g['clean'][lab]):>12s}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="gammaspec", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -115,6 +143,15 @@ def main(argv: list[str] | None = None) -> int:
     ph.add_argument("--resolution", type=int, help="template points per sample (default 16)")
     ph.add_argument("--compare", help="reference template.h5 to overlay")
     ph.set_defaults(func=_cmd_characterize)
+
+    pe = sub.add_parser("evaluate-restoration",
+                        help="compare line removal / pole-zero / baseline tracker on real data")
+    pe.add_argument("store", help="HDF5 capture store")
+    pe.add_argument("template", help="template.h5 with a fitted model (from characterize)")
+    pe.add_argument("out", help="output directory")
+    pe.add_argument("--n-peaks", type=int, default=2, help="spectral peaks to fit (2 for 60Co, 1 for 40K)")
+    pe.add_argument("--limit", type=int, help="only the first N captures")
+    pe.set_defaults(func=_cmd_evaluate_restoration)
 
     args = p.parse_args(argv)
     if getattr(args, "lsb", None) is None and hasattr(args, "lsb"):

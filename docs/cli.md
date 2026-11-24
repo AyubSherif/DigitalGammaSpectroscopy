@@ -90,3 +90,27 @@ Outputs in `OUT_DIR`:
 | `noise.h5` | `freq_hz`, `psd` (V²/Hz, one-sided), `autocorr`; σ and white level as attributes |
 | `summary.json` | every number in the report, plus the configuration used |
 | `template.png`, `shape_vs_amplitude.png`, `noise.png`, `stability.png`, `spectrum_raw.png` | diagnostic plots |
+
+## `evaluate-restoration`
+
+Compare combinations of the pre-processing stages (line removal, pole-zero correction,
+baseline tracker) on real data. Every configuration measures the same pulses. Results
+are described in [baseline-restoration.md](baseline-restoration.md).
+
+```bash
+gammaspec evaluate-restoration STORE.h5 TEMPLATE.h5 OUT_DIR [--n-peaks N] [--limit N]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `STORE.h5` | (required) | capture store |
+| `TEMPLATE.h5` | (required) | template with a fitted model (from `characterize`, ideally a low-rate run) |
+| `OUT_DIR` | (required) | output folder |
+| `--n-peaks N` | 2 | spectral peaks to fit (2 for ⁶⁰Co, 1 for ⁴⁰K) |
+| `--limit N` | all | only the first *N* captures |
+
+Prints a table per configuration (noise σ, pre-pulse baseline spread, tail, FWHM with
+free and fixed baseline) and a comparison of pulses on an earlier pulse's tail against
+clean pulses. Writes `restoration_summary.json` and the plots `waveform_example.png`,
+`line_removal_psd.png`, `pole_zero_template.png`, `baseline_and_tail.png` and
+`spectrum_comparison.png`.

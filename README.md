@@ -8,9 +8,9 @@ Developed against 3 hours of data from a NaI(Tl) detector read out directly from
 the photomultiplier (PMT) and digitised at 1.8 MS/s, with a ⁶⁰Co source and a
 separate background run.
 
-> **Status: early development (v0.1).** Data ingestion and detector characterisation
-> are complete. Baseline restoration, detection, pile-up correction and spectrum
-> building are in progress.
+> **Status: early development (v0.1).** Data ingestion, detector characterisation and
+> waveform pre-processing (interference removal, baseline restoration) are complete.
+> Detection, pile-up correction and spectrum building are in progress.
 > See [Roadmap](#roadmap).
 
 ## Why
@@ -25,7 +25,8 @@ a modular processing chain:
 ```text
 raw ASCII captures
   → lossless binary store        (done)
-  → baseline restoration         (planned)
+  → interference removal         (done)
+  → baseline restoration         (done)
   → event detection              (planned)  ← the data reduction step
   → pile-up resolution & energy  (planned)
   → histogram & calibration      (planned)
@@ -73,6 +74,7 @@ with CaptureStore("data/source_first100.h5") as store:
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Pipeline design, module map, how the stages fit together |
 | [docs/characterization.md](docs/characterization.md) | Measured pulse shape, noise and preliminary spectra of the 2021 data |
+| [docs/baseline-restoration.md](docs/baseline-restoration.md) | Interference removal, pole-zero correction, baseline tracker: method and results |
 | [docs/data-formats.md](docs/data-formats.md) | Raw capture format, HDF5 store schema, index CSV |
 | [docs/cli.md](docs/cli.md) | Command-line reference |
 | [docs/development.md](docs/development.md) | Environment setup, testing, conventions |
@@ -83,7 +85,7 @@ with CaptureStore("data/source_first100.h5") as store:
 
 1. ✅ Ingestion: fast reader, lossless binary store, chronological index
 2. ✅ Pulse template and noise characterisation ([results](docs/characterization.md))
-3. ⬜ Baseline restoration (pole-zero correction for the undershoot, plus a slow baseline tracker)
+3. ✅ Interference removal and baseline restoration: pole-zero correction plus a slow baseline tracker ([results](docs/baseline-restoration.md))
 4. ⬜ Event detection (matched filter) and the event list
 5. ⬜ Pile-up benchmark: template matching vs least-squares fit vs HYPER
 6. ⬜ Pile-up solver and energy estimation

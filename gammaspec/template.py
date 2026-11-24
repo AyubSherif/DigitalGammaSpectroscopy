@@ -102,11 +102,12 @@ def _linear_fit(Y: np.ndarray, S: np.ndarray):
 
 def fit_pulses(windows: np.ndarray, template: PulseTemplate, pre: int,
                fit_range: tuple[int, int] = (-10, 60), max_shift: float = 1.0,
-               steps_per_sample: int = 16) -> PulseFit:
+               steps_per_sample: int = 16, fit_baseline: bool = True) -> PulseFit:
     """Fit A, b and the sub-sample shift of every window against the template.
 
     Grid search over shifts in [-max_shift, max_shift], parabolic refinement of the
-    best shift, then an exact linear solve at the refined shift.
+    best shift, then an exact linear solve at the refined shift. With
+    ``fit_baseline=False`` the baseline is fixed at 0 (use after baseline restoration).
     """
     lo, hi = fit_range
     Y = windows[:, pre + lo: pre + hi + 1].astype(np.float64)
@@ -118,10 +119,15 @@ def fit_pulses(windows: np.ndarray, template: PulseTemplate, pre: int,
     SY = Y @ S.T                                                   # (N, G)
     y1 = Y.sum(1)[:, None]
     yy = (Y * Y).sum(1)[:, None]
-    det = ss * n - s1 * s1
-    A = (n * SY - s1 * y1) / det
-    b = (ss * y1 - s1 * SY) / det
-    sse = yy - A * SY - b * y1                                     # (N, G)
+    if fit_baseline:
+        det = ss * n - s1 * s1
+        A = (n * SY - s1 * y1) / det
+        b = (ss * y1 - s1 * SY) / det
+        sse = yy - A * SY - b * y1                                 # (N, G)
+    else:
+        A = SY / ss
+        b = np.zeros_like(A)
+        sse = yy - A * SY
 
     g = np.argmin(sse, axis=1)
     gi = np.clip(g, 1, deltas.size - 2)
@@ -132,7 +138,12 @@ def fit_pulses(windows: np.ndarray, template: PulseTemplate, pre: int,
     delta = deltas[gi] + np.clip(off, -1, 1) / steps_per_sample
 
     Si = template(j[None, :] - delta[:, None])                     # (N, J)
-    A, b, sse = _linear_fit(Y, Si)
+    if fit_baseline:
+        A, b, sse = _linear_fit(Y, Si)
+    else:
+        sy, ss_i = (Si * Y).sum(-1), (Si * Si).sum(-1)
+        A, b = sy / ss_i, np.zeros(Y.shape[0])
+        sse = np.maximum((Y * Y).sum(-1) - A * sy, 0.0)
     return PulseFit(A, b, delta, np.sqrt(sse / n))
 
 
