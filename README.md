@@ -76,6 +76,7 @@ with CaptureStore("data/source_first100.h5") as store:
 | [docs/characterization.md](docs/characterization.md) | Measured pulse shape, noise and preliminary spectra of the 2021 data |
 | [docs/baseline-restoration.md](docs/baseline-restoration.md) | Interference removal, pole-zero correction, baseline tracker: method and results |
 | [docs/detection.md](docs/detection.md) | Event detection and the event list: method, evaluation, results |
+| [docs/pileup-benchmark.md](docs/pileup-benchmark.md) | Pile-up methods compared on synthetic and real pile-ups |
 | [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths |
 | [docs/data-formats.md](docs/data-formats.md) | Raw capture format, HDF5 store schema, index CSV |
 | [docs/cli.md](docs/cli.md) | Command-line reference |
@@ -89,7 +90,7 @@ with CaptureStore("data/source_first100.h5") as store:
 2. ✅ Pulse template and noise characterisation ([results](docs/characterization.md))
 3. ✅ Interference removal and baseline restoration: pole-zero correction plus a slow baseline tracker ([results](docs/baseline-restoration.md))
 4. ✅ Event detection (optimal filter + successive cancellation) and the event list ([results](docs/detection.md))
-5. ⬜ Pile-up benchmark: template matching vs least-squares fit vs HYPER
+5. ✅ Pile-up benchmark: template matching vs HYPER vs least-squares fits ([results](docs/pileup-benchmark.md))
 6. ⬜ Pile-up solver and energy estimation
 7. ⬜ Spectrum, energy calibration (⁶⁰Co, ⁴⁰K, ²⁰⁸Tl) and background subtraction
 8. ⬜ User-selectable stages (pipeline configuration)

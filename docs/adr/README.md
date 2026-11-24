@@ -13,5 +13,6 @@ that is reversed gets a new record that supersedes the old one.
 | [0005](0005-pole-zero-from-pulse-model.md) | Pole-zero correction derived from the pulse model, always followed by a baseline tracker | Accepted |
 | [0006](0006-interference-line-removal.md) | Remove interference by subtracting sinusoids fitted to pulse-free samples | Accepted |
 | [0007](0007-optimal-filter-successive-cancellation.md) | Detect pulses with a per-capture optimal filter and successive cancellation | Accepted |
+| [0008](0008-pileup-weighted-least-squares.md) | Resolve pile-up with weighted least squares and sub-sample timing | Accepted |
 
 New records: copy the structure of an existing one, take the next number.

@@ -143,6 +143,43 @@ def _cmd_evaluate_detection(args) -> int:
     return 0
 
 
+def _cmd_evaluate_pileup(args) -> int:
+    from .pileup import METHODS
+    from .pileup_eval import LABELS, SEPARATIONS, evaluate
+
+    s = evaluate(args.store, args.template, args.events, args.out)
+    print("\nA (template pairs, detected) - second pulse: bias / spread in %, by separation")
+    for pname, rows in s["template_pairs"].items():
+        print(f"  {pname}  (detected as a pair: " + " ".join(
+            f"{d}:{rows[str(d)]['detected_as_pair']:.2f}" for d in SEPARATIONS) + ")")
+        for m in METHODS:
+            print(f"    {LABELS[m]:30s}" + " ".join(
+                f"{d}:{100*rows[str(d)]['methods'][m]['second']['bias']:+.1f}/{100*rows[str(d)]['methods'][m]['second']['spread']:.1f}"
+                for d in SEPARATIONS))
+    print("\nB (real pulse pairs) - first | second pulse: bias / spread in %")
+    for m in METHODS:
+        print(f"  {LABELS[m]:30s}" + " ".join(
+            f"{d}:{100*s['real_pairs'][str(d)][m]['first']['bias']:+.1f}/{100*s['real_pairs'][str(d)][m]['first']['spread']:.1f}"
+            f"|{100*s['real_pairs'][str(d)][m]['second']['bias']:+.1f}/{100*s['real_pairs'][str(d)][m]['second']['spread']:.1f}"
+            for d in SEPARATIONS))
+    print("\nspeed (microseconds per 2-pulse cluster): "
+          + ", ".join(f"{m} {v:.0f}" for m, v in s["speed_us_per_cluster"].items()))
+    print(f"\nC (real 60Co pile-up events; {s['n_real_isolated']} isolated references): "
+          "peak shift vs isolated (%), FWHM (%)")
+    for m in METHODS:
+        r = s["real_events"][m]
+        iso = r.get("isolated", {})
+        line = f"  {LABELS[m]:30s} isolated FWHM {iso.get('fwhm_pct', ['?', '?'])} |"
+        for lab in ("all pile-up", "gap < 10", "gap 10-30", "gap 30-60"):
+            x = r.get(lab, {})
+            if "shift_pct" in x:
+                line += f" {lab} (n={x['n']}): shift {x['shift_pct'][0]:+.2f}/{x['shift_pct'][1]:+.2f}, FWHM {x['fwhm_pct'][0]:.2f}/{x['fwhm_pct'][1]:.2f} |"
+            else:
+                line += f" {lab}: {x.get('error', 'n/a')[:40]} |"
+        print(line)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="gammaspec", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -209,6 +246,13 @@ def main(argv: list[str] | None = None) -> int:
     pd.add_argument("template", help="template.h5 with a fitted model")
     pd.add_argument("out", help="output directory")
     pd.set_defaults(func=_cmd_evaluate_detection)
+
+    pu = sub.add_parser("evaluate-pileup", help="benchmark the pile-up resolution methods")
+    pu.add_argument("store", help="HDF5 capture store (noise and real pulses)")
+    pu.add_argument("template", help="template.h5 with a fitted model")
+    pu.add_argument("events", help="event file of the same store (pile-up snippets)")
+    pu.add_argument("out", help="output directory")
+    pu.set_defaults(func=_cmd_evaluate_pileup)
 
     args = p.parse_args(argv)
     if getattr(args, "lsb", None) is None and hasattr(args, "lsb"):

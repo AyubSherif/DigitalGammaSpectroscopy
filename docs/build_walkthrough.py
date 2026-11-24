@@ -39,6 +39,8 @@ The order follows the data:
 | B | 2. Characterisation | pulse template, analytic pulse model, noise |
 | C | 3. Pre-processing | interference removal → pole-zero correction → baseline tracker |
 | D | 4. Detection and events | optimal filter → successive cancellation → event list |
+| E | 5. Pile-up resolution | TM, HYPER and least-squares fits on a real pile-up cluster |
+| F | Evaluation tools | how the numbers in the docs were measured |
 
 Conventions: time is in **samples** (1 sample = 1/1.8 MHz = 0.556 µs) unless stated;
 voltages are in volts; the raw pulses are negative and are flipped to positive early on.
@@ -683,13 +685,17 @@ md(r"""
 The optimal filter's response has negative dips and small bumps (above), which a plain
 peak search would report as extra pulses. Successive cancellation (CLEAN):
 
-1. Take candidates (local maxima above the threshold) in **descending** order.
+1. Take candidates (local maxima above the threshold) in **descending** order (`_cancel_pass`).
 2. For each: re-check it in the **residual** output (it may have shrunk when a neighbour
-   was subtracted). Require residual ≥ threshold + 3 % × (largest accepted pulse whose
-   response overlaps here) and a local maximum.
+   was subtracted). Accept only if residual ≥ threshold + 3 % × (largest accepted pulse
+   whose response overlaps here), it is a local maximum, and it is **not within ±2 samples
+   of an accepted pulse** (there, only template mismatch of the real pulse remains).
 3. Parabola through the three samples → sub-sample position → phase row p of R.
    $A = y_r[j] / R_p[j-\text{base}]$; subtract $A\,R_p$ from the residual.
-4. Return the accepted positions, amplitudes and the residual.
+4. **Search the residual again** (up to 4 passes): a small pulse hidden under a larger
+   pulse's negative dip is not a local maximum of the original output, but it appears once
+   the larger pulse has been subtracted.
+5. Return the accepted positions, amplitudes and the residual.
 
 Below: a real close pile-up from this capture.
 """)
@@ -792,16 +798,265 @@ ax[0,0].stairs(np.histogram(amp, edges)[0], edges); ax[0,0].set_yscale("log"); a
 ax[0,0].set_title("Clean events, ⁶⁰Co run (29 s live): template-fit amplitudes"); plt.show()
 """)
 
+# =============================================================================================
 md(r"""
 ---
-## Evaluation tools (not part of the pipeline)
+# Part E: Pile-up resolution (step 5)
 
-* `restoration.evaluate`: runs every combination of the pre-processing stages on the same
-  pulses and compares noise, pre-pulse baseline, tails and peak resolution
-  (`docs/baseline-restoration.md`).
-* `detection_eval.evaluate`: injects template pulses into real noise and into
-  phase-scrambled noise (same spectrum, no pulses) to measure efficiency, false triggers,
-  artifacts and pair resolution for every detection method (`docs/detection.md`).
+A pile-up cluster is a stretch of clean signal with two or more pulses closer than 60
+samples. Every method in `gammaspec.pileup` takes the cluster waveform **y** (baseline 0),
+the detected peak positions **pos** (relative to the start of y) and a `PileupContext`, and
+returns one amplitude per pulse. We use a real ⁶⁰Co pile-up cluster from the event file.
+
+## E0. A real cluster: `EventFile.snippet(cluster)`
+""")
+code(r"""
+ev_all = efull.events
+ok_flags = (ev_all["flags"] & (events.FLAG_WARMUP | events.FLAG_EDGE)) == 0
+cand = ev_all[(ev_all["cluster_size"] == 2) & (ev_all["gap_next"] >= 6) & (ev_all["gap_next"] <= 10)
+              & (ev_all["filter_amplitude"] > 0.25) & ok_flags]
+cl = int(cand["cluster"][0])
+cap, start, yc = efull.snippet(cl)
+rows = ev_all[ev_all["cluster"] == cl]
+pos = (rows["index"] - start).astype(float)
+print(f"cluster {cl}: capture {cap}, snippet starts at sample {start}, length {yc.size}")
+print("positions in the snippet:", pos, " detector amplitudes (mV):", np.round(rows["filter_amplitude"] * 1e3, 1))
+fig, ax = P.figure(1, 1, height_per_row=2.8)
+ax[0,0].plot(yc * 1e3, marker="o", markersize=2.5, linewidth=0.9)
+for p_ in pos: ax[0,0].axvline(p_, color=P.MUTED, linestyle=":", linewidth=0.8)
+ax[0,0].set_ylabel("mV"); ax[0,0].set_title("Clean waveform of the cluster (dotted: detected peaks)"); plt.show()
+""")
+
+md(r"""
+## E1. `pileup.PileupContext`
+Holds what the methods need: the (pole-zero-corrected) template **s**, its decay constant
+τ (for HYPER), the noise autocovariance (for GLS/WLS), the template mismatch ε (for WLS),
+and the timing-refinement settings. `derivative(t)` is the central difference
+$s'(t) \approx [s(t+h) - s(t-h)]/2h$ with h = 1/16 sample. The noise autocovariance here is
+measured from capture 1's pulse-free samples (as in D2), now with 4096 lags.
+""")
+code(r"""
+from gammaspec import pileup
+r_long = detect.noise_autocovariance(y1, freeD, 4096)
+ctx = pileup.PileupContext(Tp, detect.decay_constant(Tp), r_long)
+print("tau =", round(ctx.tau, 3), " model_error eps =", ctx.model_error, " noise variance r[0] =", r_long[0])
+print("s(t) and s'(t) at t = -1, 0, 1, 5:", np.round(Tp(np.array([-1., 0, 1, 5])), 3), np.round(ctx.derivative(np.array([-1., 0, 1, 5])), 3))
+""")
+
+md(r"""
+## E2. `pileup.tm(y, pos, ctx)`: template matching (the paper)
+
+Measured amplitude of pulse p = the sample at its peak, $b_p = y[t_p]$. Each $b_p$ is the
+pulse's own amplitude plus the tails of the **earlier** pulses at that point:
+
+$$b_p = \sum_{q \le p} M_{pq}\, a_q,\qquad M_{pq} = s(t_p - t_q),\quad M_{pp} = s(0) = 1$$
+
+M is lower triangular with a unit diagonal, so a is found by forward substitution
+(`solve_triangular`). It uses **one sample per pulse**, and assumes the peak is exactly on
+a sample.
+""")
+code(r"""
+b_meas = yc[np.round(pos).astype(int)]
+dd = pos[:, None] - pos[None, :]
+M = np.where(dd >= 0, Tp(dd), 0.0)
+print("b =", np.round(b_meas * 1e3, 2), "mV\nM =\n", np.round(M, 4))
+print("a = M^-1 b =", np.round(pileup.tm(yc, pos, ctx) * 1e3, 2), "mV")
+""")
+
+md(r"""
+## E3. `pileup.hyper(y, pos, ctx)`: HYPER
+
+For mono-exponential pulses $A_q e^{-\lambda(t-t_q)}$, between pulse p and p+1:
+
+$$D(t) = y(t) + \lambda\int_{t_p}^{t} y\,dt' = \sum_{q\le p} A_q e^{-\lambda(t_p - t_q)} = \text{const} = D_p$$
+
+(differentiate: $\dot y = -\lambda y$ between pulses, so $\dot D = 0$). Hence
+$D_p = A_p + D_{p-1}e^{-\lambda(t_p - t_{p-1})}$ and
+
+$$A_p = D_p - D_{p-1}\,e^{-\lambda (t_p - t_{p-1})}$$
+
+D_p is averaged over the segment (trapezoidal integral, from the peak, at most 3τ long).
+Our pulses are not purely exponential (finite rise), which biases HYPER.
+""")
+code(r"""
+lam = 1 / ctx.tau
+p_ = np.round(pos).astype(int)
+for k in range(p_.size):
+    a_, b_ = p_[k], min(p_[k + 1] if k + 1 < p_.size else yc.size, p_[k] + int(3 * ctx.tau))
+    seg_ = yc[a_:b_]; integ = np.concatenate([[0.0], np.cumsum(0.5 * (seg_[1:] + seg_[:-1]))])
+    Dt = seg_ + lam * integ
+    print(f"segment {k}: D(t) first values {np.round(Dt[:6] * 1e3, 1)} mV -> mean D_{k} = {Dt.mean() * 1e3:.2f} mV")
+print("HYPER amplitudes:", np.round(pileup.hyper(yc, pos, ctx) * 1e3, 2), "mV")
+""")
+
+md(r"""
+## E4. `pileup.ls(y, pos, ctx)`: least squares with integer times
+
+Model the **whole** cluster: $y(t) = \sum_k A_k\, s(t - t_k) + \text{noise}$. With the
+design matrix $S_{tk} = s(t - t_k)$ (one column per pulse) this is linear:
+
+$$\hat A = \arg\min \lVert y - S A\rVert^2 = (S^TS)^{-1}S^Ty$$
+
+(`np.linalg.lstsq`). It uses all samples, so it averages noise, but it still assumes the
+peaks are on samples.
+""")
+code(r"""
+t_ = np.arange(yc.size, dtype=float)
+S = Tp(t_[:, None] - pos[None, :])
+print("design matrix S:", S.shape, "  S^T S =\n", np.round(S.T @ S, 3))
+print("LS amplitudes:", np.round(pileup.ls(yc, pos, ctx) * 1e3, 2), "mV")
+""")
+
+md(r"""
+## E5. `pileup.ls_refine`: least squares with sub-sample timing (`_ls(refine=True)`)
+
+The arrival times are refined jointly with the amplitudes (Gauss–Newton). For a small
+time shift δ:
+
+$$A\,s(t - t_k - \delta) \approx A\,s(t - t_k) - (A\delta)\, s'(t - t_k)$$
+
+which is still linear, now in $A_k$ and $(A\delta)_k$: solve
+$y \approx [\,S \;\; -S'\,]\,[A;\; A\delta]$, take $\delta_k = (A\delta)_k / A_k$
+(at most ±0.5 per step, ±0.75 in total), update $t_k$, repeat 4 times, then solve for A at
+the final times. Below, one step by hand, then the function.
+""")
+code(r"""
+Dmat = ctx.derivative(t_[:, None] - pos[None, :])
+coef, *_ = np.linalg.lstsq(np.hstack([S, -Dmat]), yc, rcond=None)
+A1, Ad1 = coef[:2], coef[2:]
+print("one Gauss-Newton step: A =", np.round(A1 * 1e3, 2), "mV, delta =", np.round(Ad1 / A1, 3), "samples")
+A_ref, t_ref = pileup._ls(yc, pos, ctx, refine=True, whiten=False)
+print("ls_refine: A =", np.round(A_ref * 1e3, 2), "mV at times", np.round(t_ref, 3), "(detected:", pos, ")")
+""")
+
+md(r"""
+## E6. `pileup.gls_refine`: whitened least squares (`_whitener`)
+
+With noise covariance C (Toeplitz from the autocovariance), the maximum-likelihood estimate
+minimises $(y - SA)^T C^{-1} (y - SA)$. With the Cholesky factor $C = LL^T$, multiply
+everything by $L^{-1}$ (`solve_triangular`): the noise becomes white and ordinary least
+squares applies to $L^{-1}y$ and $L^{-1}S$ ("prewhitening"). The timing refinement is the
+same as E5.
+""")
+code(r"""
+from scipy.linalg import solve_triangular
+Lc = pileup._whitener(ctx, yc.size)
+print("Cholesky factor:", Lc.shape, " L[0:3,0:3] =\n", np.round(Lc[:3, :3] * 1e3, 4), "(mV)")
+# whitening real noise: take pulse-free stretches of capture 1 as long as the cluster
+wins_, _ = noise.pulse_free_windows(y1, freeD, yc.size)
+z = np.array([solve_triangular(Lc, w_, lower=True) for w_ in wins_])
+print(f"{len(wins_)} real noise windows: before whitening std {wins_.std()*1e3:.3f} mV, lag-1 correlation {np.corrcoef(wins_[:, :-1].ravel(), wins_[:, 1:].ravel())[0,1]:.3f}")
+print(f"after L^-1: std {z.std():.3f} (should be 1), lag-1 correlation {np.corrcoef(z[:, :-1].ravel(), z[:, 1:].ravel())[0,1]:.3f} (should be 0)")
+print("gls_refine: A =", np.round(pileup.gls_refine(yc, pos, ctx) * 1e3, 2), "mV")
+""")
+
+md(r"""
+## E7. `pileup.wls_refine`: noise + template-mismatch weighting (the chosen method)
+
+GLS assumes the template is exact. Real pulses differ from it by a small, amplitude-
+proportional amount. The fit residuals of the isolated pulses show it:
+
+$$\text{rms}^2 = \sigma_0^2 + (\varepsilon A)^2$$
+
+`wls_refine` adds that model error to the covariance:
+$C = C_\text{noise} + (\varepsilon\, A_\max)^2 I$, with $A_\max$ from a first unweighted fit.
+Small pulses (noise-dominated) are weighted like GLS; large pulses (mismatch-dominated) like
+ordinary LS. Below, ε is measured from the clean events of the event file.
+""")
+code(r"""
+cl_ev = efull.clean(); a_ = cl_ev["amplitude"]; r_ = cl_ev["fit_rms"]
+m_ = (a_ > 0.005) & (a_ < 0.6)
+c0, c1 = np.linalg.lstsq(np.vstack([np.ones(m_.sum()), a_[m_] ** 2]).T, r_[m_] ** 2, rcond=None)[0]
+print(f"fit of rms^2 = sigma0^2 + (eps A)^2 over {m_.sum()} clean events: sigma0 = {np.sqrt(c0)*1e3:.3f} mV, eps = {np.sqrt(c1)*100:.3f} %")
+A0 = pileup.ls(yc, pos, ctx)
+print(f"extra variance for this cluster: (eps * A_max)^2 = ({ctx.model_error} * {A0.max()*1e3:.1f} mV)^2 = {(ctx.model_error*A0.max()*1e3)**2:.3f} mV^2  vs noise r[0] = {r_long[0]*1e6:.3f} mV^2")
+print("wls_refine: A =", np.round(pileup.wls_refine(yc, pos, ctx) * 1e3, 2), "mV")
+""")
+
+md(r"""
+## E8. `pileup.resolve(method, y, pos, ctx)`: all methods on this cluster
+`resolve` dispatches by name. Below: every method's amplitudes, and the WLS fit with its
+residual.
+""")
+code(r"""
+for m in pileup.METHODS:
+    print(f"{m:11s}", np.round(pileup.resolve(m, yc, pos, ctx) * 1e3, 2), "mV")
+A_w, t_w = pileup._ls(yc, pos, ctx, refine=True, whiten=True,
+                      extra_var=(ctx.model_error * pileup.ls(yc, pos, ctx).max()) ** 2)
+model_w = Tp(t_[:, None] - t_w[None, :]) @ A_w
+fig, ax = P.figure(1, 1, height_per_row=3.0)
+ax[0,0].plot(t_, yc * 1e3, marker="o", markersize=2.5, linewidth=0.8, label="data")
+ax[0,0].plot(t_, model_w * 1e3, linewidth=1.2, label="WLS fit (sum of two templates)")
+ax[0,0].plot(t_, (yc - model_w) * 1e3, linewidth=1.0, label="residual")
+ax[0,0].set_ylabel("mV"); ax[0,0].legend(); plt.show()
+""")
+
+# =============================================================================================
+md(r"""
+---
+# Part F: Evaluation tools (not part of the pipeline)
+
+These modules measure how well the pipeline works; they produced the numbers in the docs.
+
+## F1. `restoration.default_configs()` and `restoration.evaluate(...)`
+Every combination of pre-processing stages is applied to the **same** pulses (selected on
+the raw signal). For each: noise, the baseline just before each pulse, the average tail
+after isolated pulses, and Gaussian fits of the ⁶⁰Co peaks with free / fixed baseline, also
+split into pulses on an earlier pulse's tail vs clean ones (`docs/baseline-restoration.md`).
+""")
+code(r"""
+from gammaspec import restoration
+for name, cfg in restoration.default_configs().items():
+    print(f"{name:30s} -> label: {cfg.label()}")
+""")
+
+md(r"""
+## F2. `detection_eval.noise_streams`, `inject`, `_matched`, `_both_found`
+
+* `noise_streams`: pulse-free stretches of the clean signal joined together (**real
+  noise**), and the same with **randomised Fourier phases** (**pure noise**): identical
+  power spectrum, but any pulse is smeared into noise, so detections in it are false.
+* `inject`: adds template pulses at random sub-sample times (optionally a second one d
+  samples later).
+* `_matched` / `_both_found`: is a detection within ±2 samples of the truth? For pairs,
+  two **distinct** detections are required.
+""")
+code(r"""
+from gammaspec import detection_eval
+real_n, pure_n, _ = detection_eval.noise_streams(SRC_STORE, Tp, pz, [0, 50])
+ns_r = noise.noise_spectrum(real_n[: real_n.size // 512 * 512].reshape(-1, 512), FS)
+ns_p = noise.noise_spectrum(pure_n[: pure_n.size // 512 * 512].reshape(-1, 512), FS)
+print(f"real noise {real_n.size} samples, rms {real_n.std()*1e3:.3f} mV; pure noise rms {pure_n.std()*1e3:.3f} mV")
+print("PSD ratio pure/real at 50, 200, 500 kHz:", np.round(np.interp([5e4, 2e5, 5e5], ns_r.freq_hz, ns_p.psd / ns_r.psd), 2))
+yi, ci, Ai = detection_eval.inject(real_n, Tp, [0.003], np.random.default_rng(0), second=(6, 0.03))
+found_ = det.detect(yi).index
+print("injected", ci.size, "pairs (3 mV then 30 mV, 6 samples apart): first found", detection_eval._matched(found_, np.round(ci).astype(int)).mean().round(3),
+      "; both found as two events", detection_eval._both_found(found_, np.round(ci).astype(int), np.round(ci + 6).astype(int)).mean().round(3))
+""")
+
+md(r"""
+## F3. `pileup_eval`: the three pile-up tests
+
+* `make_context(template, noise)`: template → pole-zero design → filtered template, decay
+  constant, noise autocovariance → `PileupContext`.
+* `_robust(errors)`: median (bias) and 1.4826 × MAD (spread) of relative errors.
+* `test_template_pairs`: test A. Pairs injected into real noise, **found by the detector**,
+  resolved; each estimate divided by the method's estimate of the same noiseless pulse alone.
+* `real_isolated_pulses` + `test_real_pairs`: test B. Real isolated pulses added in pairs;
+  each estimate divided by the method's estimate of that real pulse alone.
+* `test_real_events`: test C. The real pile-up snippets are resolved; the ⁶⁰Co peaks are
+  compared with the method's own isolated-pulse peaks.
+* `_speed`: time per two-pulse cluster.
+
+A small version of test B:
+""")
+code(r"""
+from gammaspec import pileup_eval
+Wr = pileup_eval.real_isolated_pulses(SRC_STORE, Tp, pz, [3, 4])
+print("real isolated pulses:", Wr.shape)
+Bres, singles = pileup_eval.test_real_pairs(Wr, ctx, np.random.default_rng(0), n_per_d=60)
+for d_ in ("4", "10"):
+    print(f"separation {d_}: " + ", ".join(f"{m} {100*Bres[d_][m]['second']['bias']:+.1f}/{100*Bres[d_][m]['second']['spread']:.1f}%" for m in pileup.METHODS))
 """)
 
 nb = nbf.v4.new_notebook()

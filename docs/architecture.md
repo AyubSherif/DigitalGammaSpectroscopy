@@ -71,6 +71,8 @@ process a live stream, not just stored files.
 | `gammaspec/events.py` | Event-file format: `EventWriter` (append per capture), `EventFile` (read), flag bits |
 | `gammaspec/pipeline.py` | `Pipeline` / `run`: store → pre-processing → detection → clusters, flags, template fits, snippets → event file (parallel over captures) |
 | `gammaspec/detection_eval.py` | Injection tests of the detection methods in real and phase-scrambled noise |
+| `gammaspec/pileup.py` | Pile-up resolution methods for one cluster: TM (paper), HYPER, LS, LS / GLS / WLS with sub-sample timing |
+| `gammaspec/pileup_eval.py` | Pile-up benchmark: template pairs in real noise, real-pulse pairs, real pile-up events |
 | `gammaspec/spectrum.py` | Gaussian peak fits on a linear background (resolution, centroids) |
 | `gammaspec/restoration.py` | Evaluation of pre-processing configurations on real data (same pulses for all), plots |
 | `gammaspec/plotting.py` | Shared figure style (validated colour palette, recessive axes) |

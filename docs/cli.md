@@ -149,3 +149,15 @@ gammaspec evaluate-detection STORE.h5 TEMPLATE.h5 OUT_DIR
 ```
 
 Writes `detection_summary.json`, `detection_efficiency.png` and `detection_pairs.png`.
+
+## `evaluate-pileup`
+
+Benchmark the pile-up methods ([pileup-benchmark.md](pileup-benchmark.md)).
+
+```bash
+gammaspec evaluate-pileup STORE.h5 TEMPLATE.h5 EVENTS.h5 OUT_DIR
+```
+
+`EVENTS.h5` is the event file of the same store (its pile-up snippets are test C). Prints the
+three test tables and the speed; writes `pileup_summary.json`, `pileup_template_pairs.png`,
+`pileup_real_pairs.png` and `pileup_real_events.png`.

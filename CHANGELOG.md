@@ -16,6 +16,11 @@ the project uses [Semantic Versioning](https://semver.org/).
   cumulative sums in `edge_signal`, `noise_sigma` on the central 131k samples.
 
 ### Added
+- `gammaspec.pileup`: pile-up resolution methods (TM as in the reference paper, HYPER,
+  least squares with integer times, and LS / GLS / WLS with sub-sample timing).
+- `gammaspec.pileup_eval` and CLI command `evaluate-pileup`: benchmark on template pairs in
+  real noise, real-pulse pairs and the real pile-up events (ADR-0008).
+- `docs/pileup-benchmark.md`; walkthrough Part E (pile-up) and Part F (evaluation tools).
 - `gammaspec.detect`: `Detector` with a per-capture optimal (noise-whitened) filter,
   successive cancellation with residual re-search, local thresholds estimated from the
   residual; matched, sharpened and edge alternatives (ADR-0007).
@@ -56,4 +61,4 @@ the project uses [Semantic Versioning](https://semver.org/).
 - CLI commands `index` and `convert` (`python -m gammaspec`).
 - Test suite with synthetic captures and real-data checks.
 - Documentation: architecture, data formats, CLI reference, development guide,
-  ADRs 0001–0007.
+  ADRs 0001–0008.
