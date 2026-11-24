@@ -179,8 +179,8 @@ to, or a recording replayed at real time), or the built-in simulator.
 Requires **Python ≥ 3.11**.
 
 ```bash
-git clone https://github.com/AyubSherif/GammaSpectroscopySoftwareAddOns.git
-cd GammaSpectroscopySoftwareAddOns
+git clone https://github.com/AyubSherif/DigitalGammaSpectroscopy.git
+cd DigitalGammaSpectroscopy
 python -m venv .venv
 # Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
 pip install -e ".[app]"         # the program and the browser app
