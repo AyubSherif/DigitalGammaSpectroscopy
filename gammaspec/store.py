@@ -95,6 +95,38 @@ def convert(
     return out_path
 
 
+def write_store(out_path, codes_iter, n_captures: int, n_samples: int, dt_s: float, lsb: float,
+                times_s, source: str, overwrite: bool = False) -> Path:
+    """Write captures given as arrays (int32 ADC codes) to a store, e.g. from the simulator.
+
+    ``times_s`` is filled while ``codes_iter`` runs (one time per capture), so a generator
+    can report the start time of each capture as it makes it.
+    """
+    out_path = Path(out_path)
+    if out_path.exists() and not overwrite:
+        raise FileExistsError(f"{out_path} exists (pass overwrite=True to replace it)")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = out_path.with_name(out_path.name + ".partial")
+    with h5py.File(tmp_path, "w") as f:
+        codes = f.create_dataset("codes", shape=(n_captures, n_samples), dtype=np.int32, chunks=(1, n_samples),
+                                 compression="gzip", compression_opts=1, shuffle=True)
+        k = 0
+        for k, row in enumerate(codes_iter, start=1):
+            codes[k - 1] = row
+        if k != n_captures:
+            raise ValueError(f"expected {n_captures} captures, got {k}")
+        t = np.asarray(times_s, dtype=float)[:n_captures]
+        idx = f.create_group("index")
+        idx.create_dataset("time_s", data=t)
+        idx.create_dataset("created", data=[f"t+{x:.6f}s" for x in t], dtype=_STR)
+        idx.create_dataset("file_number", data=np.arange(n_captures, dtype=np.int32))
+        idx.create_dataset("source", data=[source] * n_captures, dtype=_STR)
+        f.attrs.update(lsb_volts=lsb, dt_s=dt_s, n_samples=n_samples, sample_rate_hz=1.0 / dt_s,
+                       gammaspec_version=__version__, source_dir=source)
+    os.replace(tmp_path, out_path)
+    return out_path
+
+
 class CaptureStore:
     """Read access to a converted store.  Use as a context manager or call close()."""
 

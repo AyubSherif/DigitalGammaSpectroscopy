@@ -1,0 +1,19 @@
+# Replay recorded captures as a live stream at real time: frames that the computer cannot
+# process in time are dropped and counted as dead time (the spectrum stays correct per live second).
+#   gammaspec run examples/run_replay_realtime.toml
+#   gammaspec stream data/source_first100.h5 data/runs/replay --template data/characterization/background/template.h5 --realtime --show
+
+output = "data/runs/replay_realtime"
+
+[input]
+kind = "replay"
+source = "data/source_first100.h5"
+background = "data/background.h5"
+
+[template]
+path = "data/characterization/background/template.h5"
+
+[stream]
+realtime = true
+speed = 1.0
+update_s = 5.0

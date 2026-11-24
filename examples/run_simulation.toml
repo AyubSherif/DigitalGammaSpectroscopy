@@ -1,0 +1,23 @@
+# A simulated measurement: 60Co source run and room-background run, streamed through the
+# pipeline, calibrated, background-subtracted, and scored against the simulator's truth.
+#   gammaspec run examples/run_simulation.toml
+# No recorded data needed. Change the detector, the source or the rates below.
+
+output = "data/runs/simulation"
+
+[input]
+kind = "simulation"
+
+[simulation]
+duration_s = 60.0
+background_duration_s = 60.0
+
+[simulation.signal]
+nuclide = "co60"         # "co60" | "cs137" | "k40" | "none"
+rate_cps = 3900.0        # source pulses per second
+background_cps = 600.0
+fwhm_pct_662 = 8.0       # intrinsic resolution at 662 keV
+seed = 1
+
+[stream]
+update_s = 5.0           # status line and live spectrum (data/runs/simulation/live/) every 5 s

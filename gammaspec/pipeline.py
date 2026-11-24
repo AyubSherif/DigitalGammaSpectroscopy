@@ -154,7 +154,8 @@ class Pipeline:
         row = np.zeros(1, CAPTURE_DTYPE)
         info = self.pre.info
         row[0] = (capture, t0_s, (n - c.preprocess.warmup_samples - ev.fit_post - 1) * dt, info.offset_v,
-                  info.sigma_in_v, info.sigma_out_v, det.sigma, det.threshold_v, ne, info.line_freqs_hz.size)
+                  info.sigma_in_v, info.sigma_out_v, det.sigma, det.threshold_v, ne, info.line_freqs_hz.size,
+                  t0_s + c.preprocess.warmup_samples * dt)
         return e, row, snippets
 
     def _solve_clusters(self, e: np.ndarray, y: np.ndarray, detected: np.ndarray) -> np.ndarray:

@@ -34,6 +34,8 @@ from pathlib import Path
 
 from .characterize import CharacterizeConfig
 from .pipeline import PipelineConfig
+from .simulate import NUCLIDES, SimConfig
+from .stream import StreamConfig, check_stream_config
 
 SCHEMA_VERSION = 1
 
@@ -44,12 +46,22 @@ SCHEMA_VERSION = 1
 
 @dataclass
 class InputConfig:
-    kind: str = "store"                   # "raw": folders of ASCII captures (converted first) | "store": HDF5 capture stores
-    source: str = ""                      # source run: raw folder or .h5 store
-    background: str = ""                  # background run, same kind ("" = no background subtraction)
+    kind: str = "store"                   # "raw" | "store" (batch) | "replay" | "simulation" | "pipe" (streamed); see docs/configuration.md
+    source: str = ""                      # raw folder or .h5 store; "pipe": a file / FIFO or "-" (stdin); "simulation": unused
+    background: str = ""                  # background run: raw folder or .h5 store ("" = no background subtraction)
     limit: int = 0                        # only the first N captures of each run, in time order (0 = all)
     pattern: str = "raw_data_*"           # raw input: capture file names
     reuse_converted: bool = True          # raw input: reuse a store already converted into the output folder
+    pipe_fs: float = 1.8e6                # pipe input: sample rate (Hz) ...
+    pipe_dtype: str = "f4"                # ... sample format: "f4" | "f8" (volts) or "i2" | "i4" (ADC codes) ...
+    pipe_scale: float = 1.0               # ... volts per unit (the ADC step for integer codes)
+
+
+@dataclass
+class SimulationConfig:
+    duration_s: float = 30.0              # simulated source run (s of signal)
+    background_duration_s: float = 30.0   # simulated background run: room background only (0 = none)
+    signal: SimConfig = field(default_factory=SimConfig)
 
 
 @dataclass
@@ -83,6 +95,11 @@ class RunConfig:
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     spectrum: SpectrumStepConfig = field(default_factory=SpectrumStepConfig)
     benchmark: BenchmarkStepConfig = field(default_factory=BenchmarkStepConfig)
+    stream: StreamConfig = field(default_factory=StreamConfig)
+    simulation: SimulationConfig = field(default_factory=SimulationConfig)
+
+
+STREAM_KINDS = ("replay", "simulation", "pipe")
 
 
 class ConfigError(ValueError):
@@ -94,7 +111,10 @@ class ConfigError(ValueError):
 # ----------------------------------------------------------------------------------------------
 
 CHOICES: dict[str, tuple] = {
-    "input.kind": ("raw", "store"),
+    "input.kind": ("raw", "store", "replay", "simulation", "pipe"),
+    "input.pipe_dtype": ("f4", "f8", "i2", "i4"),
+    "simulation.signal.nuclide": tuple(NUCLIDES),
+    "simulation.signal.polarity": (-1, 1),
     "template.build_from": ("background", "source"),
     "pipeline.preprocess.polarity": (-1, 1),
     "template.characterize.polarity": (-1, 1),
@@ -110,7 +130,12 @@ POSITIVE = {
     "pipeline.solver.search_threshold", "pipeline.solver.max_shift", "pipeline.solver.acov_lags",
     "pipeline.events.cluster_gap", "spectrum.bin_kev", "spectrum.e_max_kev",
     "template.characterize.trigger_threshold", "template.characterize.resolution",
+    "input.pipe_fs", "input.pipe_scale", "stream.frame", "stream.chunk", "stream.max_backlog", "stream.speed",
+    "stream.channels", "stream.v_max", "simulation.signal.fs", "simulation.signal.gain_kev_per_v",
+    "simulation.signal.fwhm_pct_662",
 }
+# allowed to be negative
+SIGNED = {"simulation.signal.offset_v"}
 
 
 # ----------------------------------------------------------------------------------------------
@@ -205,7 +230,7 @@ def _validate_values(obj, where: str, errors: list[str]) -> None:
             continue
         if key in POSITIVE and not v > 0:
             errors.append(f"{key}: must be > 0, got {v!r}")
-        elif v < 0:
+        elif v < 0 and key not in SIGNED:
             errors.append(f"{key}: must be >= 0, got {v!r}")
 
 
@@ -344,25 +369,41 @@ def check(cfg: RunConfig, paths: bool = True) -> list[str]:
     """Problems between settings. Errors raise ConfigError; returns the warnings."""
     errors, warn = [], []
     p, i = cfg.pipeline.preprocess, cfg.input
-    if not i.source:
+    sim = i.kind == "simulation"
+    has_background = (cfg.simulation.background_duration_s > 0) if sim else bool(i.background)
+    if not i.source and i.kind not in ("simulation", "pipe"):
         errors.append("input.source: not set (a raw capture folder or an .h5 store)")
-    if not cfg.template.path and cfg.template.build_from == "background" and not i.background:
+    if not cfg.template.path and not sim and cfg.template.build_from == "background" and not i.background:
         errors.append("template: no template.path, and template.build_from = 'background' but there is no "
                       "input.background (set one, or build_from = 'source')")
+    if not cfg.template.path and i.kind == "pipe" and cfg.template.build_from == "source":
+        errors.append("template: cannot be built from a pipe; give template.path or build_from = 'background'")
     if paths:
-        for key, val in (("input.source", i.source), ("input.background", i.background),
-                         ("template.path", cfg.template.path)):
-            if not val:
+        # what each path must be, by input kind
+        want = {"raw": "dir", "store": "file", "replay": "any", "pipe": "pipe", "simulation": None}[i.kind]
+        checks = [("input.source", i.source, want), ("template.path", cfg.template.path, "file")]
+        if not sim:
+            checks.append(("input.background", i.background, "any" if i.kind in STREAM_KINDS else want))
+        for key, val, kind in checks:
+            if not val or kind is None or (kind == "pipe" and val == "-"):
                 continue
             q = Path(val)
-            want_dir = key != "template.path" and i.kind == "raw"
             if not q.exists():
                 errors.append(f"{key}: {val} does not exist")
-            elif want_dir and not q.is_dir():
+            elif kind == "dir" and not q.is_dir():
                 errors.append(f"{key}: {val} is not a folder (input.kind = 'raw')")
-            elif not want_dir and q.is_dir():
-                errors.append(f"{key}: {val} is a folder; expected an .h5 file"
-                              + (" (raw captures need input.kind = 'raw')" if key != "template.path" else ""))
+            elif kind in ("file", "pipe") and q.is_dir():
+                errors.append(f"{key}: {val} is a folder; expected a file"
+                              + (" (raw captures need input.kind = 'raw' or 'replay')" if key != "template.path" else ""))
+    if i.kind in STREAM_KINDS:
+        errors += check_stream_config(cfg.stream, cfg.pipeline)
+    sg = cfg.simulation.signal
+    if sim and len(sg.lines_hz) != len(sg.lines_v):
+        errors.append(f"simulation.signal: lines_hz has {len(sg.lines_hz)} values but lines_v has {len(sg.lines_v)}")
+    if sim and sg.noise_psd and not Path(sg.noise_psd).exists():
+        errors.append(f"simulation.signal.noise_psd: {sg.noise_psd} does not exist")
+    if sim and sg.pulse_template and not Path(sg.pulse_template).exists():
+        errors.append(f"simulation.signal.pulse_template: {sg.pulse_template} does not exist")
     if p.pole_zero and not p.baseline_tracker:
         warn.append("pole_zero without baseline_tracker: the pole-zero filter amplifies slow baseline drift "
                     "(on the 2021 data this is worse than no processing)")
@@ -372,8 +413,14 @@ def check(cfg: RunConfig, paths: bool = True) -> list[str]:
                     "(pile-up clusters keep their detector amplitudes, flagged PILEUP)")
     if cfg.pipeline.detect.method == "edge" and cfg.pipeline.detect.cancel:
         warn.append("detect.cancel has no effect with method = 'edge'")
-    if cfg.spectrum.enabled and not i.background:
-        warn.append("no input.background: the spectrum is calibrated but not background-subtracted")
+    if cfg.spectrum.enabled and not has_background:
+        warn.append("no background run: the spectrum is calibrated but not background-subtracted")
+    if cfg.benchmark.enabled and i.kind in ("simulation", "pipe"):
+        warn.append(f"benchmark needs a capture store; it is skipped for input.kind = '{i.kind}' "
+                    "(simulate a store with 'gammaspec simulate' and benchmark that)")
+    if sim and cfg.template.path:
+        warn.append("template.path is used by the pipeline, while the simulator makes pulses with "
+                    "simulation.signal.pulse_template: they differ unless both name the same file")
     if errors:
         raise ConfigError("invalid configuration:\n  " + "\n  ".join(errors))
     return warn

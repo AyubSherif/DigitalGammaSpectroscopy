@@ -245,6 +245,104 @@ def _cmd_benchmark(args) -> int:
     return 0
 
 
+def _sim_config(args):
+    """SimConfig from --config ([simulation.signal]) and --set KEY=VALUE (keys of [simulation.signal])."""
+    from . import config as C
+
+    d = C.read_dict(args.config) if args.config else {}
+    sig = d.get("simulation", {}).get("signal", d.get("signal", {}))
+    full = {"simulation": {"signal": dict(sig)}}
+    for s in args.set or []:
+        key = s.split("=", 1)[0]
+        prefix = "" if key.startswith("simulation.") else ("simulation." if key.startswith("signal.") else "simulation.signal.")
+        C.set_key(full, prefix + s)
+    return C.from_dict(full).simulation.signal
+
+
+def _cmd_simulate(args) -> int:
+    from . import config as C
+
+    try:
+        sig = _sim_config(args)
+    except C.ConfigError as exc:
+        print(exc)
+        return 2
+    if args.out == "-":
+        import numpy as np
+
+        from .sources import Paced, SimulationSource
+
+        src = SimulationSource(sig, args.duration)
+        it = (Paced(src, args.speed) if args.realtime else src).chunks()
+        out = sys.stdout.buffer
+        dtype = {"f4": "<f4", "i2": "<i2", "i4": "<i4"}[args.dtype]
+        try:
+            for ch in it:
+                x = ch.data if args.dtype == "f4" else np.rint(ch.data / sig.lsb_v)
+                out.write(x.astype(dtype).tobytes())
+            out.flush()
+        except (BrokenPipeError, KeyboardInterrupt):
+            pass
+        return 0
+    from .simulate import simulate_store
+
+    store, truth = simulate_store(args.out, sig, args.captures, args.samples, args.gap, overwrite=args.overwrite)
+    from .simulate import load_truth
+
+    T = load_truth(truth)
+    live = args.captures * args.samples / sig.fs
+    print(f"wrote {store}: {args.captures} captures of {args.samples} samples ({live:.2f} s), "
+          f"{T.size} pulses ({T.size / live:.0f} /s); truth: {truth}")
+    return 0
+
+
+def _cmd_stream(args) -> int:
+    from pathlib import Path
+
+    from . import config as C
+    from .runner import StepError, run
+
+    d = C.read_dict(args.config) if args.config else {}
+    src = args.source
+    if src == "sim":
+        kind = "simulation"
+    elif src == "-" or not (Path(src).is_dir() or Path(src).suffix.lower() in (".h5", ".hdf5")):
+        kind = "pipe"
+    else:
+        kind = "replay"
+    sets = [f"output={C._toml_value(args.out)}", f"input.kind={C._toml_value(kind)}"]
+    if kind != "simulation":
+        sets.append(f"input.source={C._toml_value(src)}")
+    if args.template:
+        sets.append(f"template.path={C._toml_value(args.template)}")
+    if args.background:
+        sets.append(f"input.background={C._toml_value(args.background)}")
+    if args.duration is not None:
+        sets.append(f"simulation.duration_s={args.duration}")
+    if kind == "simulation" and not args.background_duration:
+        sets.append("simulation.background_duration_s=0")
+    elif args.background_duration:
+        sets.append(f"simulation.background_duration_s={args.background_duration}")
+    if args.realtime:
+        sets += ["stream.realtime=true", f"stream.speed={args.speed}"]
+    try:
+        for s in sets + (args.set or []):
+            C.set_key(d, s)
+        cfg = C.from_dict(d)
+        plot = None
+        if args.show:
+            from .liveplot import LivePlot
+
+            plot = LivePlot()
+        run(cfg, on_update=plot.update if plot else None)
+        if plot:
+            plot.keep_open()
+    except (C.ConfigError, StepError) as exc:
+        print(exc)
+        return 2
+    return 0
+
+
 def _cmd_run(args) -> int:
     from . import config as C
     from .runner import StepError, run
@@ -375,6 +473,36 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--set", action="append", metavar="KEY=VALUE",
                     help="override one setting, e.g. --set detect.threshold=6 (repeatable)")
     pp.set_defaults(func=_cmd_process)
+
+    pm = sub.add_parser("simulate", help="simulated detector signal: a capture store (+ truth), or samples on stdout")
+    pm.add_argument("out", help="output store (.h5), or - for binary samples on stdout (to pipe into 'stream -')")
+    pm.add_argument("--captures", type=int, default=20, help="store: number of captures (default 20)")
+    pm.add_argument("--samples", type=int, default=524288, help="store: samples per capture (default 524288)")
+    pm.add_argument("--gap", type=float, default=0.0, help="store: seconds between captures (default 0: continuous)")
+    pm.add_argument("--duration", type=float, default=0.0, help="stdout: seconds of signal (default 0: endless)")
+    pm.add_argument("--realtime", action="store_true", help="stdout: at real time (a live source)")
+    pm.add_argument("--speed", type=float, default=1.0, help="stdout with --realtime: multiple of real time")
+    pm.add_argument("--dtype", default="f4", choices=["f4", "i2", "i4"], help="stdout: sample format (default f4 volts)")
+    pm.add_argument("--config", help="run file; its [simulation.signal] table is used")
+    pm.add_argument("--set", action="append", metavar="KEY=VALUE",
+                    help="simulator setting, e.g. --set nuclide=cs137 --set rate_cps=2000 (repeatable)")
+    pm.add_argument("--overwrite", action="store_true")
+    pm.set_defaults(func=_cmd_simulate)
+
+    pt = sub.add_parser("stream", help="process a stream: stdin (-), a replayed recording, or a simulation (sim)")
+    pt.add_argument("source", help="- (binary samples on stdin), a raw folder or .h5 store (replay), a file/FIFO "
+                                   "of binary samples, or sim (the simulator)")
+    pt.add_argument("out", help="output folder (events, live spectrum, spectrum)")
+    pt.add_argument("--template", help="pulse template (.h5); default: built from --background (or the simulator's pulse)")
+    pt.add_argument("--background", help="background run (raw folder or .h5 store) for background subtraction")
+    pt.add_argument("--duration", type=float, help="sim: seconds of signal (default 30)")
+    pt.add_argument("--background-duration", type=float, default=0.0, help="sim: also simulate a background run this long")
+    pt.add_argument("--realtime", action="store_true", help="replay / sim at real time (frames are dropped if processing falls behind)")
+    pt.add_argument("--speed", type=float, default=1.0, help="with --realtime: multiple of real time")
+    pt.add_argument("--show", action="store_true", help="live spectrum window")
+    pt.add_argument("--config", help="run file to start from")
+    pt.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a run-file setting (repeatable)")
+    pt.set_defaults(func=_cmd_stream)
 
     pr = sub.add_parser("run", help="run the configured chain: input -> template -> events -> spectrum -> benchmark")
     pr.add_argument("config", help="run file (.toml or .json), e.g. from 'gammaspec config init'")

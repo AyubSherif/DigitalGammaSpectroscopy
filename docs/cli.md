@@ -250,3 +250,57 @@ gammaspec benchmark STORE.h5 EVENTS.h5 OUT_DIR [--first 0] [--n 100]
 `EVENTS.h5` must be the event file of `STORE.h5`. Prints FWHM (% and keV), valley-to-peak,
 peak rates, pile-up continuum and live fraction for each chain. Writes
 `benchmark_summary.json` and `benchmark_spectra.png`.
+
+## `simulate`
+
+A simulated detector signal ([simulation.md](simulation.md)): a capture store with its
+truth, or binary samples on stdout to pipe into `stream -`.
+
+```bash
+gammaspec simulate OUT.h5 [--captures 20] [--samples 524288] [--gap 0] [--set KEY=VALUE ...] [--config RUN.toml]
+gammaspec simulate - [--duration S] [--realtime [--speed X]] [--dtype f4|i2|i4] [--set KEY=VALUE ...]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--captures`, `--samples` | 20, 524288 | store: number and length of the captures |
+| `--gap` | 0 | store: seconds between captures (0 = consecutive pieces of one waveform) |
+| `--duration` | 0 (endless) | stdout: seconds of signal |
+| `--realtime`, `--speed` | off, 1 | stdout: release samples at (a multiple of) real time |
+| `--dtype` | `f4` | stdout: float32 volts, or int16 / int32 ADC codes |
+| `--set KEY=VALUE` | | a `[simulation.signal]` setting, e.g. `--set nuclide=cs137 --set rate_cps=2000` |
+| `--config` | | a run file whose `[simulation.signal]` table is used |
+
+The store gets `OUT.truth.h5` next to it ([format](data-formats.md#simulation-truth-truthh5-truthrunh5)).
+
+## `stream`
+
+Process a stream ([streaming.md](streaming.md)): binary samples on stdin, a replayed
+recording, or the simulator. A shortcut for a run file with a streamed `input.kind`.
+
+```bash
+gammaspec stream SOURCE OUT_DIR [--template T.h5] [--background B] [--realtime [--speed X]] [--show]
+                 [--duration S] [--background-duration S] [--config RUN.toml] [--set KEY=VALUE ...]
+```
+
+| `SOURCE` | Input kind |
+|---|---|
+| `-` | `pipe`: binary samples on stdin (`--set input.pipe_dtype=i2 --set input.pipe_scale=8.4771697e-5` for ADC codes) |
+| a file that is not `.h5` | `pipe`: a file or FIFO of binary samples |
+| a raw folder or an `.h5` store | `replay` |
+| `sim` | `simulation` (`--duration`, default 30 s; `--background-duration` to simulate a background run too) |
+
+| Option | Description |
+|---|---|
+| `--template` | pulse template; default: built from `--background`, or the simulator's pulse shape |
+| `--background` | background run (raw folder or store) for background subtraction |
+| `--realtime`, `--speed` | replay / simulation as a live stream (frames are dropped if processing falls behind) |
+| `--show` | live spectrum window (matplotlib) |
+
+Examples:
+
+```bash
+gammaspec stream sim out/sim --duration 20 --show
+gammaspec simulate - --realtime | gammaspec stream - out/pipe --template data/characterization/background/template.h5
+gammaspec stream data/source_first100.h5 out/replay --template data/characterization/background/template.h5 --realtime
+```

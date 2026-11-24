@@ -6,7 +6,22 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-24
+
 ### Added
+- Step 10, streaming: `gammaspec.sources` (store, raw files, simulation, binary pipe /
+  stdin, real-time pacing) and `gammaspec.stream` (`StreamProcessor`: overlapping frames
+  through the unchanged capture pipeline, parallel, exact int32 transfer, batched writes,
+  live frame dropping as dead time; `LiveSpectrum` with automatic calibration;
+  `process_stream`), `gammaspec.liveplot`. Run-file kinds `replay`, `simulation`, `pipe`,
+  sections `[stream]` and `[simulation]`; CLI `stream`. ADR-0012, `docs/streaming.md`.
+- Signal simulator `gammaspec.simulate`: measured pulse model, ⁶⁰Co cascade summing,
+  Klein–Nishina Compton, backscatter, room background, resolution, noise (white or measured
+  spectrum), interference, offset, polarity, ADC; continuous and independent of read sizes;
+  simulated stores (`store.write_store`); truth files and `compare_to_truth`. CLI
+  `simulate` (store, or samples on stdout). `docs/simulation.md`.
+- Event files: capture column `live_start_s` (older files read as NaN); attribute `stream`.
+- `examples/run_simulation.toml`, `examples/run_replay_realtime.toml`; walkthrough Part J.
 - Step 9, run configuration: `gammaspec.config` (one TOML/JSON run file mirroring the config
   dataclasses; strict validation with suggestions; stage-combination checks; commented
   defaults from the code) and `gammaspec.runner` (input → template → events → spectrum →
@@ -26,6 +41,10 @@ the project uses [Semantic Versioning](https://semver.org/).
   amplitudes, so the ⁶⁰Co pair is found even when many small (noise) triggers are present.
 - `calibration.fit_lines` drops lines whose centre or width is at a bound before the least
   significant ones, so a real line is not dropped in favour of a degenerate neighbour.
+
+## [0.1.0] - 2026-11-24
+
+The offline pipeline, steps 1–7.
 
 ### Fixed
 - `PoleZero` started from the first sample's value, which the filter's DC gain turned

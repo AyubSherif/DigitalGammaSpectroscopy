@@ -12,8 +12,9 @@ separate background run.
 > pre-processing, detection, pile-up resolution, calibration and background
 > subtraction, run on the full 3-hour dataset (6.4 M events in 19 min, 75× smaller
 > than the raw text), and benchmarked against a naive peak count and an emulated analog
-> chain. Every stage is selectable from a run file (`gammaspec run`). Next: streaming and
-> simulated input, then a UI.
+> chain. Every stage is selectable from a run file (`gammaspec run`). Input can be raw files,
+> stores, a live stream (stdin / FIFO, or a replay at real time) or a built-in signal
+> simulator with known truth. Next: a UI.
 > See [Roadmap](#roadmap).
 
 ## Why
@@ -62,6 +63,8 @@ gammaspec config init my_run.toml        # every setting, at its default, commen
 gammaspec config check my_run.toml       # validate
 gammaspec run my_run.toml                # convert -> template -> events -> spectrum (-> benchmark)
 gammaspec run examples/run_2021_raw.toml # or a ready-made example
+gammaspec run examples/run_simulation.toml   # no data needed: simulated source + background, scored against the truth
+gammaspec stream sim out/sim --duration 20 --show   # live spectrum of a simulated stream
 ```
 
 Or step by step:
@@ -85,7 +88,7 @@ with CaptureStore("data/source_first100.h5") as store:
 
 ## Documentation
 
-In reading order: each document with the code it describes. Steps 2–10 follow the
+In reading order: each document with the code it describes. Steps 2–12 follow the
 data through the pipeline, so they can be reviewed one by one, side by side with
 their modules.
 
@@ -101,11 +104,13 @@ their modules.
 | 8 | [docs/spectrum.md](docs/spectrum.md) | Step 7: energy calibration, gain matching, background subtraction; first-100 and full-run results | [calibration.py](gammaspec/calibration.py), [analysis.py](gammaspec/analysis.py), [spectrum.py](gammaspec/spectrum.py) |
 | 9 | [docs/benchmark.md](docs/benchmark.md) | Step 8: gammaspec vs naive `find_peaks` vs an emulated analog chain vs typical analog NaI(Tl) systems | [benchmark.py](gammaspec/benchmark.py) |
 | 10 | [docs/configuration.md](docs/configuration.md) | Step 9: the run file: input, stage switches, every parameter, validation, reruns | [config.py](gammaspec/config.py), [runner.py](gammaspec/runner.py), [examples/](examples/) |
-| 11 | [docs/cli.md](docs/cli.md) | Command-line reference (every command, all steps) | [cli.py](gammaspec/cli.py), [__main__.py](gammaspec/__main__.py) |
-| 12 | [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths | all; built by [docs/build_walkthrough.py](docs/build_walkthrough.py) |
-| 13 | [docs/development.md](docs/development.md) | Environment setup, testing, conventions | [tests/](tests/), [pyproject.toml](pyproject.toml) |
-| 14 | [docs/adr/](docs/adr/) | Architecture Decision Records: why things are the way they are (0001–0011, in step order) | — |
-| 15 | [CHANGELOG.md](CHANGELOG.md) | Release history | — |
+| 11 | [docs/simulation.md](docs/simulation.md) | Step 10: the signal simulator, its physics, and the pipeline scored against the truth | [simulate.py](gammaspec/simulate.py) |
+| 12 | [docs/streaming.md](docs/streaming.md) | Step 10: sources, overlapping frames, live input, live spectrum; validation and speed | [sources.py](gammaspec/sources.py), [stream.py](gammaspec/stream.py), [liveplot.py](gammaspec/liveplot.py) |
+| 13 | [docs/cli.md](docs/cli.md) | Command-line reference (every command, all steps) | [cli.py](gammaspec/cli.py), [__main__.py](gammaspec/__main__.py) |
+| 14 | [docs/walkthrough.ipynb](docs/walkthrough.ipynb) | Every function in call order, run on the real data, with inputs, outputs and the maths | all; built by [docs/build_walkthrough.py](docs/build_walkthrough.py) |
+| 15 | [docs/development.md](docs/development.md) | Environment setup, testing, conventions | [tests/](tests/), [pyproject.toml](pyproject.toml) |
+| 16 | [docs/adr/](docs/adr/) | Architecture Decision Records: why things are the way they are (0001–0012, in step order) | — |
+| 17 | [CHANGELOG.md](CHANGELOG.md) | Release history | — |
 
 ## Results at a glance
 
@@ -134,5 +139,5 @@ PMT.
 7. ✅ Energy calibration, gain matching and background subtraction ([results](docs/spectrum.md)); full 3-hour run processed
 8. ✅ Benchmark: naive `find_peaks` count and an emulated preamp + shaping amp + MCA chain on the same data, plus typical published analog NaI(Tl) values ([results](docs/benchmark.md))
 9. ✅ User-selectable stages: one run file for input, stages and parameters; `gammaspec run` ([docs](docs/configuration.md))
-10. ⬜ Streaming input (continuous, state across chunks), a signal simulator, live spectrum
+10. ✅ Streaming (overlapping frames, live sources, live spectrum) and a signal simulator with truth ([streaming](docs/streaming.md), [simulation](docs/simulation.md))
 11. ⬜ UI (edits the run file; input: raw / store / stream / simulation) and packaging

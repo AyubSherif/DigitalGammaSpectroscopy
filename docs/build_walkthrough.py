@@ -43,6 +43,7 @@ The order follows the data:
 | G | 7. Calibration and background subtraction | keV axis for each run, gain matching, net spectrum |
 | H | Benchmark | the same pulses through a naive `find_peaks` count, an emulated analog chain and gammaspec |
 | I | 9. Configuration | one run file selects input, stages and parameters; the runner executes it |
+| J | 10. Simulation and streaming | a synthetic signal with known truth; continuous input in overlapping frames; live spectrum |
 | F | Evaluation tools | how the numbers in the docs were measured |
 
 Conventions: time is in **samples** (1 sample = 1/1.8 MHz = 0.556 µs) unless stated;
@@ -1382,6 +1383,125 @@ print({k: v["seconds"] for k, v in r_["steps"].items()})
 r_ = runner.run(C.load(None, sets_), verbose=True)                                   # unchanged: reused
 r_ = runner.run(C.load(None, sets_ + ["pipeline.detect.threshold=7"]), verbose=False)  # only processing reruns
 print("stored in the event file:", C.pipeline_from_event_file(r_["events"]["source"]).detect.threshold)
+""")
+
+# =============================================================================================
+md(r"""
+---
+# Part J: Simulation and streaming (step 10)
+
+## J1. `simulate.analytic_template()` and `simulate.Simulator(cfg).read(n)`
+The simulator builds the pulse from the analytic model fitted to the 2021 template (Part B,
+`MODEL_2021`), with its peak at t = 0. `read(n)` returns the next n samples. Each pulse is
+built as follows:
+* **Arrivals:** Poisson in time, at the source and background rates.
+* **Energy:** for each gamma of the decay (⁶⁰Co: 1173 *and* 1332 keV, same decay), it deposits
+  with probability `efficiency`. Then the photopeak with P/T(E) ∝ E^−0.6, the backscatter
+  energy E/(1+2E/mc²), or a Klein–Nishina Compton electron
+  $\frac{d\sigma}{dT} \propto 2 + \frac{s^2}{\varepsilon^2(1-s)^2} + \frac{s}{1-s}\left(s-\frac{2}{\varepsilon}\right)$,
+  s = T/E, ε = E/mc².
+* **Summing and smearing:** deposits of one decay add up (true-coincidence summing), and are
+  smeared by FWHM/E = 8 % · √(662/E).
+* **Waveform:** amplitude E / gain × pulse(t − t₀). The pulse comes from a table of 128
+  sub-sample phases. Then noise, interference sinusoids, the offset, the negative polarity
+  and ADC rounding.
+
+Events are generated in fixed 65,536-sample blocks, so the waveform does not depend on how
+it is read.
+""")
+code(r"""
+from gammaspec import simulate, sources, stream
+sim = simulate.Simulator(simulate.SimConfig(seed=3))
+x_sim = sim.read(20000)
+T_ = sim.truth_table()
+print(f"{T_.size} true pulses in {x_sim.size} samples; first three:", [(round(r['sample'], 2), round(float(r['energy_kev']), 1)) for r in T_[:3]])
+a_, b_ = simulate.Simulator(simulate.SimConfig(seed=3)), simulate.Simulator(simulate.SimConfig(seed=3))
+print("same signal however it is read:", np.array_equal(np.concatenate([a_.read(7), a_.read(19993)]), b_.read(20000)))
+fig, ax = P.figure(1, 2, height_per_row=2.8)
+ax[0,0].plot(np.arange(4000) / FS * 1e6, x_sim[:4000] * 1e3, color=P.SERIES[0], linewidth=0.7)
+ax[0,0].set_xlabel("µs"); ax[0,0].set_ylabel("mV (as recorded)"); ax[0,0].set_title("simulated waveform")
+long_ = simulate.Simulator(simulate.SimConfig(noise_v=0, seed=4)); long_.read(int(FS * 4)); E_ = long_.truth_table()["energy_kev"]
+ax[0,1].hist(E_, np.arange(0, 2800, 10), histtype="step", color=P.SERIES[1]); ax[0,1].set_yscale("log")
+ax[0,1].set_xlabel("deposited energy (keV)"); ax[0,1].set_title("true energies (4 s): peaks, Compton, sum peak"); plt.show()
+""")
+
+md(r"""
+## J2. `sources`: where samples come from
+Every source yields `Chunk(data, new_segment, t0_s)`:
+* `StoreSource` and `RawSource`: one segment per capture, read from a store or straight from
+  the ASCII files;
+* `SimulationSource`: one endless segment;
+* `PipeSource`: binary samples from stdin, a file or a FIFO;
+* `Paced(source)`: releases chunks at real time, which makes a source *live*.
+""")
+code(r"""
+for src_ in (sources.StoreSource(SRC_STORE, limit=1, chunk=200000), sources.SimulationSource(duration_s=0.2, chunk=200000)):
+    cs_ = list(src_.chunks())
+    print(f"{src_.description}: {len(cs_)} chunks of {[c.data.size for c in cs_]} samples, new_segment {[c.new_segment for c in cs_]}")
+""")
+
+md(r"""
+## J3. `stream.StreamProcessor`: overlapping frames
+A segment is cut into frames:
+* a core of `frame` samples;
+* plus `pre` samples of context before it (more than the 1,500-sample warm-up) and `post`
+  after it (fit windows, baseline tracker, clusters).
+
+`process_frame` runs the unchanged `Pipeline.process_capture` on the whole frame and keeps
+only the events whose peak is in the core. The frames are independent, so they run in
+parallel workers. Samples travel to the workers as exact int32 ADC codes when they lie on the
+ADC grid. A live source that gets ahead of the workers loses frames; they count as dead time
+(no live time).
+""")
+code(r"""
+x_ = simulate.Simulator(simulate.SimConfig(seed=5)).read(300000)
+res_ = {}
+for frame_ in (300000, 65536):
+    sp_ = stream.StreamProcessor(simulate.analytic_template(), FS, pipeline.PipelineConfig(),
+                                 stream.StreamConfig(frame=frame_, update_s=0), workers=1)
+    for a0 in range(0, x_.size, 40000):              # any chunking gives the same frames
+        sp_.feed(x_[a0:a0 + 40000])
+    st_ = sp_.close()
+    res_[frame_] = np.concatenate([r[0] for r in sp_.results])
+    print(f"frame {frame_}: {st_.frames} frames, {st_.events} events, live {st_.live_time_s:.4f} s")
+e1, e2 = res_[300000], res_[65536]
+j_ = np.clip(np.searchsorted(e2["time_s"], e1["time_s"]), 1, e2.size - 1)
+same = np.minimum(abs(e2["time_s"][j_] - e1["time_s"]), abs(e2["time_s"][j_-1] - e1["time_s"])) * FS < 0.5
+print(f"events of the single frame found again with 65536-sample frames: {100*same.mean():.2f} %")
+""")
+
+md(r"""
+## J4. `stream.LiveSpectrum` and `stream.process_stream(source, template, out, ...)`
+`process_stream` feeds a source to the processor and writes the event file. Every
+`update_s` seconds it prints a status line, recalibrates the live spectrum (once it has
+20,000 good events, and again at every doubling) and writes `live/<run>/live_spectrum.json`
+(plus a PNG every `png_s`). A UI or `gammaspec stream --show` (`liveplot.LivePlot`) draws it.
+""")
+code(r"""
+simulate.analytic_template().save(TMP / "t_sim.h5")
+r_ = stream.process_stream(sources.SimulationSource(simulate.SimConfig(seed=6), duration_s=2.0), TMP / "t_sim.h5",
+                           TMP / "sim_events.h5", pipeline.PipelineConfig(), stream.StreamConfig(update_s=0), workers=1,
+                           verbose=False, live_dir=TMP / "live")
+print({k: (round(v, 3) if isinstance(v, float) else v) for k, v in r_.items() if k != "calibration"})
+print("live spectrum calibration:", "not yet (fewer than 20,000 good events in 2 s)" if r_["calibration"] is None else np.round(r_["calibration"], 1))
+""")
+
+md(r"""
+## J5. `simulate.compare_to_truth(events, truth)`
+Detected events are matched to the true pulses by time (±2 samples), counting only the
+truth inside each capture's live region (`live_start_s`, `live_time_s`). It reports:
+* detection efficiency by true energy;
+* false detections per second;
+* amplitude bias and spread of good events above 50 mV;
+* the fraction of close true pairs (2–60 samples) found as two events.
+""")
+code(r"""
+sim_t = sources.SimulationSource(simulate.SimConfig(seed=6), duration_s=2.0).sim; sim_t.read(int(2.0 * FS))
+simulate.save_truth(TMP / "truth.h5", sim_t.truth_table(), sim_t.cfg)
+c_ = simulate.compare_to_truth(TMP / "sim_events.h5", TMP / "truth.h5")
+print({k: c_[k] for k in ("true_pulses", "detected", "false_rate_cps", "amplitude_bias_pct", "amplitude_spread_pct", "close_pairs_resolved")})
+for e_ in c_["efficiency_by_energy"]:
+    print(f"  {e_['energy_kev'][0]:4d}-{e_['energy_kev'][1]:4d} keV: {e_['true']:5d} true, found {100*e_['efficiency']:.1f} %")
 """)
 
 # =============================================================================================

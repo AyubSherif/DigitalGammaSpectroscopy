@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gammaspec"
-version = "0.1.0"
+version = "0.2.0"
 description = "Digital pulse processing for gamma-ray spectroscopy: baseline restoration, pile-up correction, spectra"
 requires-python = ">=3.11"
 dependencies = ["numpy>=2.0", "scipy>=1.13", "h5py>=3.10", "numba>=0.60", "matplotlib>=3.8"]

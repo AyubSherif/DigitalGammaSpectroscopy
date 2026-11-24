@@ -75,7 +75,9 @@ Written by `gammaspec index --csv`. One row per capture, in time order.
 
 ## Event file (`*.h5`)
 
-Written by `gammaspec process` (`events.EventWriter`); read with `events.EventFile`.
+Written by `gammaspec process` and by the stream processor (`events.EventWriter`); read with
+`events.EventFile`. In a streamed file, a "capture" is a frame (its core): `capture` is
+the frame number and `index` is the sample within the core.
 Every column is a separate compressed, resizable dataset.
 
 `/events/<column>`, one row per detected pulse:
@@ -101,13 +103,38 @@ only describe how a pulse was measured: with the solver on, those pulses have va
 amplitudes. `EventFile.good()` returns every event with a usable amplitude;
 `EventFile.clean()` only the unflagged (isolated) ones.
 
-`/captures/<column>`, one row per capture: `capture`, `time_s`, `live_time_s` (valid
-region), `offset_v`, `sigma_in_v`, `sigma_out_v` (noise before / after pre-processing),
-`filter_sigma_v`, `threshold_v`, `n_events`, `n_lines`.
+`/captures/<column>`, one row per capture (or stream frame): `capture`, `time_s`,
+`live_time_s` (duration of the valid region), `live_start_s` (its start: after the warm-up;
+added in v0.2, NaN when reading older files), `offset_v`, `sigma_in_v`, `sigma_out_v` (noise
+before / after pre-processing), `filter_sigma_v`, `threshold_v`, `n_events`, `n_lines`.
 
 `/snippets/`: `cluster`, `capture`, `start`, `offset`, `length` and `data` (flat float32):
 the clean waveform of each stored cluster, from 20 samples before its first pulse to 80
 after its last.
 
-Attributes: `config` (the full `PipelineConfig` as JSON), `template`, `source_store`,
-`lsb_volts`, `dt_s`, `fit_baseline`, `pole_zero` (filter coefficients), `gammaspec_version`.
+Attributes: `config` (the full `PipelineConfig` as JSON), `template`, `source_store` (for a
+stream: a description of the source), `lsb_volts`, `dt_s`, `fit_baseline`, `pole_zero`
+(filter coefficients), `stream` (the `StreamConfig`, streamed files only), `gammaspec_version`.
+
+## Simulation truth (`*.truth.h5`, `truth/<run>.h5`)
+
+Written by `gammaspec simulate` (next to the store) and by simulated runs; read with
+`simulate.load_truth`. One row per true pulse (one per decay or background event that
+deposited energy):
+
+| Column | Type | Description |
+|---|---|---|
+| `time_s` | f8 | arrival time, on the same clock as the event file's `time_s` |
+| `sample` | f8 | arrival, in samples since the start of the simulation |
+| `amplitude_v` | f4 | true pulse amplitude (= energy / gain) |
+| `energy_kev` | f4 | deposited energy after detector resolution |
+| `kind` | u1 | 0 source, 1 room background |
+
+Attributes: `sim_config` (the `SimConfig` as JSON); for a store also `capture_start_samples`
+and `n_samples`.
+
+## Live spectrum (`live/<run>/live_spectrum.json`)
+
+Rewritten (atomically) every `stream.update_s` seconds while a stream is processed:
+`live_time_s`, `events`, `good`, `counts` (per channel), `edges_v` and, once calibrated,
+`calibration` (coefficients) and `edges_kev`. `live_spectrum.png` is the same as a picture.

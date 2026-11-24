@@ -135,6 +135,13 @@ as the standard figure for good 3″×3″ crystals, which scales as about 1/√
 * The gammaspec FWHM here (6.54 / 6.05 %) comes from the benchmark's fit (2 keV bins,
   1040–1440 keV), applied identically to every chain. `gammaspec spectrum` uses 5 keV bins
   and gives 6.56 / 6.04 % for the same events. The difference is within the errors.
+* **Absolute FWHM values are model-dependent.** The fit uses two Gaussians on a linear
+  background. On simulated ⁶⁰Co spectra with known widths, this underestimates the FWHM by
+  8–10 %, because the 1332 keV Compton edge lies under the 1173 keV peak
+  ([simulation.md](simulation.md#two-findings-that-only-a-simulation-can-show)).
+  * The comparison between chains is unaffected: the same fit is used for all.
+  * The comparison with literature values is affected: those values come from other fit
+    methods, and the true widths here may be somewhat larger than quoted.
 * Only 29 s of data are used: the analog emulation runs at about real-time speed in
   Python. The full run (6.18 M good events) gives 6.62 / 6.05 % with the benchmark's fit,
   and isolated pulses alone 6.57 / 6.03 %. This matches the first 100 captures within

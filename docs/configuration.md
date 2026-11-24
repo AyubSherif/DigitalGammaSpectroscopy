@@ -43,13 +43,28 @@ both runs with every stage on, then calibrates and subtracts the background.
 
 ## What the run does
 
+**Input kinds** (`input.kind`):
+
+| Kind | `input.source` | Processed by |
+|---|---|---|
+| `raw` | folder of ASCII captures (converted to a store first) | batch (`pipeline.run`, parallel over captures) |
+| `store` | `.h5` capture store | batch |
+| `replay` | raw folder or `.h5` store, read capture by capture as a stream (no conversion); `stream.realtime = true` makes it live | stream processor ([streaming.md](streaming.md)) |
+| `simulation` | not used: the simulator makes the signal (`[simulation]`, [simulation.md](simulation.md)) | stream processor |
+| `pipe` | binary samples from a file / FIFO, or `-` for stdin (`pipe_fs`, `pipe_dtype`, `pipe_scale`) | stream processor (live) |
+
+`input.background` is a raw folder or an `.h5` store for every kind except `simulation`
+(`simulation.background_duration_s` simulates one).
+
 | Step | Runs when | Output (in `output/`) |
 |---|---|---|
-| 1. **Input** | `input.kind = "raw"`: convert the ASCII captures to an HDF5 store. `"store"`: use the given `.h5` files as they are. | `stores/source.h5`, `stores/background.h5` |
-| 2. **Template** | `template.path` empty: build one with the characterisation step from `template.build_from` (`[template.characterize]` settings). Otherwise use the given file. | `template/` |
+| 1. **Input** | `input.kind = "raw"`: convert the ASCII captures to an HDF5 store. `"store"`: use the given `.h5` files as they are. Streamed kinds: no store, unless a later step needs one (building the template from a raw folder, the benchmark). | `stores/source.h5`, `stores/background.h5` |
+| 2. **Template** | `template.path` empty: build one with the characterisation step from `template.build_from` (`[template.characterize]` settings); for `simulation`, the simulator's own pulse shape. Otherwise use the given file. | `template/` |
 | 3. **Process** | Always, for the source run and (if `input.background` is set) the background run: pre-processing → detection → pile-up solver (`[pipeline.*]`). | `events/source.h5`, `events/background.h5` |
 | 4. **Spectrum** | `spectrum.enabled` (default on): calibration, spectra, background subtraction if there is a background run. | `spectrum/` |
-| 5. **Benchmark** | `benchmark.enabled` (default off): naive / analog / gammaspec comparison. | `benchmark/` |
+| 5. **Benchmark** | `benchmark.enabled` (default off): naive / analog / gammaspec comparison (needs a store: not for `simulation` / `pipe`). | `benchmark/` |
+| + **Truth** | `input.kind = "simulation"`: the events are scored against the simulator's truth. | `truth/`, `simulation_check.json` |
+| (streamed) | while streaming: status line, live spectrum | `live/<run>/live_spectrum.json`, `.png` |
 
 Every run also writes `config.toml`, the **effective** configuration (the file plus the
 `--set` changes plus the defaults), and `run_summary.json` (time and output of each step).
@@ -92,6 +107,8 @@ detection needs a restored baseline to set its threshold. Only their use is opti
 | `[pipeline.solver]` | `solver.SolverConfig` | pile-up solver |
 | `[spectrum]` | `config.SpectrumStepConfig` | bins, range |
 | `[benchmark]` | `config.BenchmarkStepConfig` | on/off, number of captures |
+| `[stream]` | `stream.StreamConfig` | frame geometry (`frame`, `pre`, `post`), `chunk`, `max_backlog`, `realtime`, `speed`, updates, live-spectrum channels |
+| `[simulation]`, `[simulation.signal]` | `config.SimulationConfig`, `simulate.SimConfig` | durations; nuclide, rates, efficiency, resolution, gain, noise, interference, ADC, pulse shape, seed |
 
 `gammaspec config init` writes all of them, each line with its meaning. The tables mirror
 the dataclasses in the code, so a new parameter in the code appears in the file
@@ -125,6 +142,9 @@ invalid configuration:
   | The solver without a restored baseline | warning (the solver is skipped) |
   | `cancel` with `edge` | warning |
   | A spectrum without a background run | warning |
+  | Streamed kinds: `stream.pre` / `post` / `frame` too short for the pipeline's windows | error |
+  | Simulation: `lines_hz` and `lines_v` of different length, missing `noise_psd` / `pulse_template` file | error |
+  | Benchmark with `simulation` / `pipe` input | warning (skipped) |
 
 A `--set KEY=VALUE` value is read as TOML (`6`, `1e-3`, `true`, `"edge"`, `[1, 2]`). A bare
 word is taken as a string. The `process` command takes `--config FILE` and `--set` as well.
@@ -139,5 +159,5 @@ still work as shortcuts that override the file.
 * Choosing a pile-up method other than the WLS solver (TM, HYPER, …) is possible in the
   benchmark only (`gammaspec evaluate-pileup`), not in the pipeline. These methods
   were measured to be worse ([pileup-benchmark.md](pileup-benchmark.md)).
-* Live streams and simulated input come in step 10. The UI (step 11) will edit the same
-  run file.
+* Streamed and simulated input: [streaming.md](streaming.md), [simulation.md](simulation.md).
+  The UI (step 11) will edit the same run file.

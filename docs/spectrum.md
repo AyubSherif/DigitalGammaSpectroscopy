@@ -149,5 +149,9 @@ Total rate above 120 keV: source 3928 /s, background 589 /s, net 3339 /s.
 * Peak shapes are Gaussian; NaI(Tl) peaks have small low-energy tails. A tailed shape would
   make overlapping-line fits (⁴⁰K next to 1332 keV) less model-dependent, and would bring
   χ²/ndf of the full-run fits (now dominated by shape, not statistics) closer to 1.
+* The FWHM values come from Gaussians on a linear background. On simulated spectra this
+  underestimates widths by up to 8–10 % near a Compton edge
+  ([simulation.md](simulation.md#two-findings-that-only-a-simulation-can-show)); line
+  rates are less affected.
 * How this compares with a naive peak count and a conventional analog chain:
   [benchmark.md](benchmark.md).

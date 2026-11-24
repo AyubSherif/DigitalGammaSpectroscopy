@@ -1,7 +1,7 @@
 # ADR-0003: Processing stages are modular and individually optional
 
 * **Status:** Accepted. Stage selection, parameters, checks and recorded configuration are implemented
-  by [ADR-0011](0011-run-configuration.md) (step 9); state across stream chunks follows in step 10.
+  by [ADR-0011](0011-run-configuration.md) (step 9); streams by [ADR-0012](0012-streaming-overlapping-frames.md) (step 10).
 * **Date:** 2026-11-24
 
 ## Context

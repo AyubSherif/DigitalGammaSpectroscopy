@@ -64,6 +64,7 @@ CAPTURE_DTYPE = np.dtype([
     ("threshold_v", "f4"),      # detection threshold
     ("n_events", "u4"),
     ("n_lines", "u2"),          # interference lines removed
+    ("live_start_s", "f8"),     # start of the valid region (time_s + warm-up; NaN in files before v0.2)
 ])
 
 SNIPPET_DTYPE = np.dtype([("cluster", "i8"), ("capture", "u4"), ("start", "i8"),
@@ -177,7 +178,10 @@ def _read_table(group: h5py.Group, dtype: np.dtype) -> np.ndarray:
     n = group[dtype.names[0]].shape[0]
     out = np.zeros(n, dtype)
     for name in dtype.names:
-        out[name] = group[name][:]
+        if name in group:
+            out[name] = group[name][:]
+        elif out[name].dtype.kind == "f":       # column added in a later version
+            out[name] = np.nan
     return out
 
 

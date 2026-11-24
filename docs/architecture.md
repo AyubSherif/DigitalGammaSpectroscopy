@@ -82,6 +82,10 @@ process a live stream, not just stored files.
 | `gammaspec/plotting.py` | Shared figure style (validated colour palette, recessive axes) |
 | `gammaspec/config.py` | Run file: `RunConfig` (input, template, pipeline, spectrum, benchmark), TOML/JSON load and save, strict validation, stage-combination checks |
 | `gammaspec/runner.py` | `run(RunConfig)`: input → template → events → spectrum → benchmark, reusing outputs whose inputs and settings are unchanged |
+| `gammaspec/simulate.py` | Signal simulator: pulse model, ⁶⁰Co/¹³⁷Cs cascades with summing, Klein–Nishina Compton, room background, noise, interference, ADC; continuous `read(n)`; simulated stores; truth and `compare_to_truth` |
+| `gammaspec/sources.py` | Signal sources yielding chunks: `StoreSource`, `RawSource`, `SimulationSource`, `PipeSource` (stdin / FIFO), `Paced` (real time) |
+| `gammaspec/stream.py` | `StreamProcessor`: overlapping frames through the capture pipeline (parallel, live frame dropping), `LiveSpectrum`, `process_stream` |
+| `gammaspec/liveplot.py` | Live spectrum window for `gammaspec stream --show` |
 | `gammaspec/cli.py`, `__main__.py` | Command-line entry point: `python -m gammaspec …` |
 | `tests/` | Unit tests (synthetic captures) and real-data checks that are skipped when the data is absent |
 
